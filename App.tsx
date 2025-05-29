@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as SecureStore from 'expo-secure-store';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 
-// Importe suas telas
+// Importação telas
 import LoginScreen from './src/screens/LoginScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import MercadoriasScreen from './src/screens/MercadoriasScreen';
@@ -47,7 +47,7 @@ export type RootStackParamList = {
   EditarFornecedor: { fornecedorId: number };
   StatusScreen: undefined;
   SolicitarResetSenha: undefined; // Nova
-  ResetarSenha: { email?: string, token?: string }; // Nova, recebe email e token como params (opcionais se o usuário digitar)
+  ResetarSenha: { email?: string, token?: string }; // Nova, recebe email e token como params 
   // ConfiguracoesScreen: undefined;
 };
 

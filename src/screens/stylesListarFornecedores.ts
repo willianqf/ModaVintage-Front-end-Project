@@ -6,23 +6,34 @@ export const styles = StyleSheet.create({
     paddingTop: 40,
     backgroundColor: '#F3F3F3',
   },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#323588',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 15,
     paddingHorizontal: 15,
   },
-  listContentContainer: {
+  searchInput: { // Novo estilo
+    height: 45,
+    borderColor: '#D0D0D0',
+    borderWidth: 1,
+    borderRadius: 8,
     paddingHorizontal: 15,
-    paddingBottom: 20,
+    marginHorizontal: 15,
+    marginBottom: 15,
+    backgroundColor: '#FFFFFF',
+    fontSize: 16,
+  },
+  listContentContainer: {
+     paddingHorizontal: 15,
+     paddingBottom: 20,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   itemContainer: {
     backgroundColor: '#FFFFFF',
