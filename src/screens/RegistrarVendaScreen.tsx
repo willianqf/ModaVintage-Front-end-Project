@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'; // Adicionado useCallback
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, Alert, ScrollView,
   FlatList, Modal, ActivityIndicator, Button as RNButton, Keyboard
@@ -7,12 +7,12 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../App'; // Ajuste o caminho
+import { RootStackParamList } from '../../App';
 import { styles } from './stylesRegistrarVenda'; // Seus estilos
 import { Cliente } from './ListarClientesScreen';
 import { Produto } from './ListarMercadoriasScreen';
 
-const API_BASE_URL = 'http://192.168.1.5:8080'; // Sua API base
+const API_BASE_URL = 'http://192.168.1.5:8080';
 
 interface ItemVendaInput {
   produto: Produto;
@@ -29,19 +29,23 @@ export default function RegistrarVendaScreen() {
   const [itensVenda, setItensVenda] = useState<ItemVendaInput[]>([]);
   const [dataVenda, setDataVenda] = useState(new Date());
   const [totalVenda, setTotalVenda] = useState(0);
-  const [isLoading, setIsLoading] = useState(false); // Para o botão "Registrar Venda"
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Estados para os Modais
   const [clienteModalVisible, setClienteModalVisible] = useState(false);
   const [produtoModalVisible, setProdutoModalVisible] = useState(false);
-  const [listaClientes, setListaClientes] = useState<Cliente[]>([]);
-  const [listaProdutosDisponiveis, setListaProdutosDisponiveis] = useState<Produto[]>([]);
   
-  const [produtoParaAdicionar, setProdutoParaAdicionar] = useState<Produto | null>(null); // Produto pré-selecionado no modal
-  const [quantidadeProdutoInput, setQuantidadeProdutoInput] = useState('1'); // Quantidade para o produtoParaAdicionar
+  const [listaClientesMaster, setListaClientesMaster] = useState<Cliente[]>([]); // Lista original
+  const [listaClientesFiltrada, setListaClientesFiltrada] = useState<Cliente[]>([]); // Lista para o modal
+  const [searchTermCliente, setSearchTermCliente] = useState('');
+
+  const [listaProdutosMaster, setListaProdutosMaster] = useState<Produto[]>([]); // Lista original
+  const [listaProdutosFiltrada, setListaProdutosFiltrada] = useState<Produto[]>([]); // Lista para o modal
+  const [searchTermProduto, setSearchTermProduto] = useState('');
+  
+  const [produtoParaAdicionar, setProdutoParaAdicionar] = useState<Produto | null>(null);
+  const [quantidadeProdutoInput, setQuantidadeProdutoInput] = useState('1');
 
   const fetchDataForModals = async () => {
-    // setIsLoading(true); // Pode ter um loading para os dados dos modais
     try {
       const token = await SecureStore.getItemAsync('userToken');
       if (!token) throw new Error("Token não encontrado.");
@@ -50,13 +54,17 @@ export default function RegistrarVendaScreen() {
         axios.get(`${API_BASE_URL}/clientes`, { headers: { Authorization: `Bearer ${token}` } }),
         axios.get(`${API_BASE_URL}/produtos`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
-      setListaClientes(clientesRes.data);
-      setListaProdutosDisponiveis(produtosRes.data.filter((p: Produto) => p.estoque > 0));
+
+      setListaClientesMaster(clientesRes.data || []);
+      setListaClientesFiltrada(clientesRes.data || []);
+
+      const produtosComEstoque = (produtosRes.data || []).filter((p: Produto) => p.estoque > 0);
+      setListaProdutosMaster(produtosComEstoque);
+      setListaProdutosFiltrada(produtosComEstoque);
+
     } catch (error) {
       console.error("Erro ao buscar dados para modais:", error);
       Alert.alert("Erro", "Não foi possível carregar dados de clientes ou produtos para seleção.");
-    } finally {
-      // setIsLoading(false);
     }
   };
 
@@ -66,7 +74,9 @@ export default function RegistrarVendaScreen() {
       setSelectedCliente(null);
       setItensVenda([]);
       setDataVenda(new Date());
-      return () => { /* Limpeza opcional */ };
+      setSearchTermCliente(''); // Limpa pesquisa ao focar
+      setSearchTermProduto(''); // Limpa pesquisa ao focar
+      return () => {};
     }, [])
   );
 
@@ -75,36 +85,62 @@ export default function RegistrarVendaScreen() {
     setTotalVenda(novoTotal);
   }, [itensVenda]);
 
+  // Filtrar Clientes
+  useEffect(() => {
+    if (searchTermCliente === '') {
+      setListaClientesFiltrada(listaClientesMaster);
+    } else {
+      setListaClientesFiltrada(
+        listaClientesMaster.filter(cliente =>
+          cliente.nome.toLowerCase().includes(searchTermCliente.toLowerCase())
+        )
+      );
+    }
+  }, [searchTermCliente, listaClientesMaster]);
+
+  // Filtrar Produtos
+  useEffect(() => {
+    if (searchTermProduto === '') {
+      setListaProdutosFiltrada(listaProdutosMaster);
+    } else {
+      setListaProdutosFiltrada(
+        listaProdutosMaster.filter(produto =>
+          produto.nome.toLowerCase().includes(searchTermProduto.toLowerCase())
+        )
+      );
+    }
+  }, [searchTermProduto, listaProdutosMaster]);
+
+
   const handleSelecionarCliente = (cliente: Cliente) => {
     setSelectedCliente(cliente);
     setClienteModalVisible(false);
+    setSearchTermCliente(''); // Limpa pesquisa do modal de cliente
   };
 
   const handleSelecionarProdutoParaAdicionar = (produto: Produto) => {
     setProdutoParaAdicionar(produto);
-    setQuantidadeProdutoInput('1'); // Reseta quantidade para 1 ao selecionar novo produto
+    setQuantidadeProdutoInput('1');
   };
 
   const handleConfirmarAdicaoItem = () => {
     if (!produtoParaAdicionar) return;
-
     const quantidade = parseInt(quantidadeProdutoInput, 10);
     if (isNaN(quantidade) || quantidade <= 0) {
-      Alert.alert("Quantidade Inválida", "Por favor, insira uma quantidade válida (maior que zero).");
+      Alert.alert("Quantidade Inválida", "Insira uma quantidade válida.");
       return;
     }
     if (quantidade > produtoParaAdicionar.estoque) {
-      Alert.alert("Estoque Insuficiente", `Estoque disponível para "${produtoParaAdicionar.nome}": ${produtoParaAdicionar.estoque}.`);
+      Alert.alert("Estoque Insuficiente", `Disponível para "${produtoParaAdicionar.nome}": ${produtoParaAdicionar.estoque}.`);
       return;
     }
 
     const itemExistenteIndex = itensVenda.findIndex(item => item.produto.id === produtoParaAdicionar.id);
     let novosItens = [...itensVenda];
-
     if (itemExistenteIndex > -1) {
       const qtdTotalNova = novosItens[itemExistenteIndex].quantidadeVendida + quantidade;
       if (qtdTotalNova > produtoParaAdicionar.estoque) {
-        Alert.alert("Estoque Insuficiente", `Você já tem ${novosItens[itemExistenteIndex].quantidadeVendida} no carrinho. Estoque total para "${produtoParaAdicionar.nome}": ${produtoParaAdicionar.estoque}.`);
+        Alert.alert("Estoque Insuficiente", `Você já tem ${novosItens[itemExistenteIndex].quantidadeVendida}. Estoque total para "${produtoParaAdicionar.nome}": ${produtoParaAdicionar.estoque}.`);
         return;
       }
       novosItens[itemExistenteIndex].quantidadeVendida = qtdTotalNova;
@@ -118,8 +154,8 @@ export default function RegistrarVendaScreen() {
     setItensVenda(novosItens);
     setProdutoParaAdicionar(null); // Volta para a lista de produtos no modal
     setQuantidadeProdutoInput('1');
-    // Não fecha o modal de produto aqui, permitindo adicionar mais itens.
-    // Para fechar, adicione: setProdutoModalVisible(false);
+    setSearchTermProduto(''); // Limpa pesquisa do modal de produto
+    // setProdutoModalVisible(false); // Descomente se quiser fechar o modal após adicionar um item
     Keyboard.dismiss();
   };
 
@@ -128,6 +164,7 @@ export default function RegistrarVendaScreen() {
   };
 
   const handleRegistrarVenda = async () => {
+    // ... (lógica de registrar venda como antes) ...
     if (itensVenda.length === 0) {
       Alert.alert("Venda Vazia", "Adicione pelo menos um produto à venda.");
       return;
@@ -149,19 +186,18 @@ export default function RegistrarVendaScreen() {
         headers: { Authorization: `Bearer ${token}` },
       });
       Alert.alert("Sucesso", "Venda registrada com sucesso!");
-      navigation.navigate('Dashboard'); // Ou VendasScreen
+      navigation.navigate('Dashboard');
     } catch (error: any) {
-        // ... (seu tratamento de erro robusto) ...
-        console.error("Erro ao registrar venda:", JSON.stringify(error.response?.data || error.message));
-        let errorMessage = "Não foi possível registrar a venda.";
-         if (axios.isAxiosError(error) && error.response) {
-              if (error.response.data?.message) errorMessage = error.response.data.message;
-              else if (typeof error.response.data === 'string') errorMessage = error.response.data;
-              else if (error.response.status === 401 || error.response.status === 403) errorMessage = "Erro de autenticação.";
-           } else if (error.message) {
-              errorMessage = error.message;
-           }
-        Alert.alert("Erro", errorMessage);
+      console.error("Erro ao registrar venda:", JSON.stringify(error.response?.data || error.message));
+      let errorMessage = "Não foi possível registrar a venda.";
+       if (axios.isAxiosError(error) && error.response) {
+            if (error.response.data?.message) errorMessage = error.response.data.message;
+            else if (typeof error.response.data === 'string') errorMessage = error.response.data;
+            else if (error.response.status === 401 || error.response.status === 403) errorMessage = "Erro de autenticação.";
+         } else if (error.message) {
+            errorMessage = error.message;
+         }
+      Alert.alert("Erro", errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -184,7 +220,7 @@ export default function RegistrarVendaScreen() {
       <Text style={styles.headerTitle}>Registrar Nova Venda</Text>
 
       <Text style={styles.sectionTitle}>Cliente (Opcional)</Text>
-      <TouchableOpacity style={styles.pickerButton} onPress={() => setClienteModalVisible(true)}>
+      <TouchableOpacity style={styles.pickerButton} onPress={() => { setSearchTermCliente(''); setClienteModalVisible(true); }}>
         <Text style={styles.pickerButtonText}>
           {selectedCliente ? selectedCliente.nome : "Selecionar Cliente"}
         </Text>
@@ -194,15 +230,15 @@ export default function RegistrarVendaScreen() {
       <TextInput style={styles.input} value={dataVenda.toLocaleDateString('pt-BR')} editable={false} />
 
       <Text style={styles.sectionTitle}>Itens da Venda</Text>
-      <TouchableOpacity style={styles.pickerButton} onPress={() => { setProdutoParaAdicionar(null); setQuantidadeProdutoInput("1"); setProdutoModalVisible(true); }}>
+      <TouchableOpacity style={styles.pickerButton} onPress={() => { setProdutoParaAdicionar(null); setQuantidadeProdutoInput("1"); setSearchTermProduto(''); setProdutoModalVisible(true); }}>
         <Text style={styles.pickerButtonText}>+ Adicionar Produto à Venda</Text>
       </TouchableOpacity>
 
       {itensVenda.length > 0 && (
         <FlatList
           data={itensVenda}
-          scrollEnabled={false} // Se dentro de ScrollView, desabilitar rolagem da FlatList
-          keyExtractor={(item, index) => `${item.produto.id}_${index}`} // Chave mais robusta
+          scrollEnabled={false}
+          keyExtractor={(item, index) => `${item.produto.id}_${index}`}
           renderItem={({ item }) => (
             <View style={styles.itemListaVenda}>
               <View style={{flex: 1}}>
@@ -236,17 +272,26 @@ export default function RegistrarVendaScreen() {
         animationType="slide"
         transparent={true}
         visible={clienteModalVisible}
-        onRequestClose={() => setClienteModalVisible(false)}>
+        onRequestClose={() => {setClienteModalVisible(false); setSearchTermCliente('');}}>
         <View style={styles.centeredView}>
           <View style={styles.modalView}>
             <Text style={styles.modalTitle}>Selecione um Cliente</Text>
+            <TextInput
+                style={styles.input} // Reutilize o estilo de input ou crie um específico para modal
+                placeholder="Pesquisar cliente por nome..."
+                value={searchTermCliente}
+                onChangeText={setSearchTermCliente}
+            />
             <FlatList
-              data={listaClientes}
+              data={listaClientesFiltrada}
               renderItem={renderClienteItemModal}
               keyExtractor={(item) => item.id.toString()}
-              style={{width: '100%'}}
+              style={{width: '100%', maxHeight: '60%'}} // Ajuste maxHeight
+              ListEmptyComponent={<Text>Nenhum cliente encontrado.</Text>}
             />
-            <RNButton title="Fechar" onPress={() => setClienteModalVisible(false)} />
+            <View style={{marginTop:15}}>
+                <RNButton title="Fechar" onPress={() => {setClienteModalVisible(false); setSearchTermCliente('');}} />
+            </View>
           </View>
         </View>
       </Modal>
@@ -256,17 +301,24 @@ export default function RegistrarVendaScreen() {
         animationType="slide"
         transparent={true}
         visible={produtoModalVisible}
-        onRequestClose={() => {setProdutoModalVisible(false); setProdutoParaAdicionar(null);}}>
+        onRequestClose={() => {setProdutoModalVisible(false); setProdutoParaAdicionar(null); setSearchTermProduto('');}}>
         <View style={styles.centeredView}>
           <View style={styles.modalView}>
             {!produtoParaAdicionar ? (
               <>
                 <Text style={styles.modalTitle}>Selecione um Produto</Text>
+                <TextInput
+                    style={styles.input}
+                    placeholder="Pesquisar produto por nome..."
+                    value={searchTermProduto}
+                    onChangeText={setSearchTermProduto}
+                />
                 <FlatList
-                  data={listaProdutosDisponiveis}
+                  data={listaProdutosFiltrada} // Usa a lista filtrada
                   renderItem={renderProdutoItemModal}
                   keyExtractor={(item) => item.id.toString()}
-                  style={{width: '100%', maxHeight: '70%'}}
+                  style={{width: '100%', maxHeight: '50%'}} // Ajuste maxHeight
+                  ListEmptyComponent={<Text>Nenhum produto encontrado ou com estoque.</Text>}
                 />
               </>
             ) : (
@@ -281,20 +333,22 @@ export default function RegistrarVendaScreen() {
                         onChangeText={setQuantidadeProdutoInput}
                         keyboardType="number-pad"
                         maxLength={3}
-                        autoFocus={true} // Foca no input de quantidade
+                        autoFocus={true}
                     />
                 </View>
                 <TouchableOpacity style={styles.confirmAddItemButton} onPress={handleConfirmarAdicaoItem}>
-                    <Text style={styles.confirmAddItemButtonText}>Adicionar Item à Venda</Text>
+                    <Text style={styles.confirmAddItemButtonText}>Confirmar Item</Text>
                 </TouchableOpacity>
               </>
             )}
             <View style={{marginTop:15}}>
-                <RNButton title="Voltar / Fechar Modal" onPress={() => {
+                <RNButton title={produtoParaAdicionar ? "Voltar para Lista de Produtos" : "Fechar Modal"} onPress={() => {
                     if (produtoParaAdicionar) {
-                        setProdutoParaAdicionar(null); // Volta para a lista de produtos se um produto estava selecionado
+                        setProdutoParaAdicionar(null); // Volta para a lista de produtos
+                        setSearchTermProduto(''); // Limpa a pesquisa ao voltar para a lista
                     } else {
-                        setProdutoModalVisible(false); // Fecha o modal se estiver na lista de produtos
+                        setProdutoModalVisible(false);
+                        setSearchTermProduto('');
                     }
                 }} />
             </View>
