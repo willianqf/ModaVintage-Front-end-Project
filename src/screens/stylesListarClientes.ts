@@ -1,10 +1,16 @@
 import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
-    container: {
+  container: {
     flex: 1,
     paddingTop: 40,
     backgroundColor: '#F3F3F3',
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   headerTitle: {
     fontSize: 24,
@@ -14,7 +20,7 @@ export const styles = StyleSheet.create({
     marginBottom: 15,
     paddingHorizontal: 15,
   },
-  searchInput: { // Novo estilo
+  searchInput: {
     height: 45,
     borderColor: '#D0D0D0',
     borderWidth: 1,
@@ -26,14 +32,8 @@ export const styles = StyleSheet.create({
     fontSize: 16,
   },
   listContentContainer: {
-     paddingHorizontal: 15,
-     paddingBottom: 20,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 15,
+    paddingBottom: 20,
   },
   itemContainer: {
     backgroundColor: '#FFFFFF',
@@ -42,12 +42,12 @@ export const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#E5E5E5',
-    flexDirection: 'row', // Para alinhar nome e botões
-    justifyContent: 'space-between', // Para espaçar nome e botões
-    alignItems: 'center', // Para alinhar verticalmente
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  itemTextContainer: { // Container para os textos do cliente
-    flex: 1, // Para ocupar o espaço disponível
+  itemTextContainer: {
+    flex: 1,
   },
   itemName: {
     fontSize: 18,
@@ -57,22 +57,22 @@ export const styles = StyleSheet.create({
   },
   itemDetails: {
     fontSize: 14,
-    color: '#777777', // Cor um pouco mais clara para detalhes
+    color: '#777777',
   },
-  buttonsContainer: { // Container para os botões de ação (Editar, Deletar)
+  buttonsContainer: {
     flexDirection: 'row',
   },
-  actionButton: { // Estilo para botões pequenos de Editar/Deletar
+  actionButton: {
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 5,
     marginLeft: 10,
   },
   editButton: {
-    backgroundColor: '#5DBEDD', // Azul
+    backgroundColor: '#5DBEDD',
   },
   deleteButton: {
-    backgroundColor: '#FF0000', // Vermelho
+    backgroundColor: '#FF0000',
   },
   actionButtonText: {
     color: '#FFFFFF',
@@ -94,5 +94,16 @@ export const styles = StyleSheet.create({
   retryButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
+  },
+  loadingText: { // Adicionado, caso esteja faltando em sua versão
+    fontSize: 16,
+    color: '#545454',
+    marginTop: 10,
+  },
+  emptyDataText: { // ESTILO CORRIGIDO/ADICIONADO
+    fontSize: 16,
+    color: '#777777',
+    textAlign: 'center',
+    marginTop: 20,
   }
 });

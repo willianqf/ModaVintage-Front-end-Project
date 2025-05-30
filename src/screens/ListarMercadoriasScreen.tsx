@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useEffect } from 'react'; // ADICIONE useEffect AQUI
-import { View, Text, FlatList, ActivityIndicator, Alert, TouchableOpacity, TextInput } from 'react-native';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { View, Text, FlatList, ActivityIndicator, Alert, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { styles as listarMercadoriasStyles } from './stylesListarMercadorias';
@@ -17,100 +17,151 @@ export interface Produto {
   dataCadastro?: string;
 }
 
+interface PaginatedResponse<T> {
+  content: T[];
+  totalPages: number;
+  totalElements: number;
+  number: number;
+  size: number;
+  first: boolean;
+  last: boolean;
+  empty: boolean;
+}
+
 const API_BASE_URL = 'http://192.168.1.5:8080';
+const PAGE_SIZE = 10;
 
 type ListarMercadoriasNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ListarMercadorias'>;
 
 export default function ListarMercadoriasScreen() {
   const navigation = useNavigation<ListarMercadoriasNavigationProp>();
+  
   const [produtos, setProdutos] = useState<Produto[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); 
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  const currentPageRef = useRef(0);
+  const hasMoreRef = useRef(true);
+  const isFetchingRef = useRef(false);
 
-  const [termoPesquisa, setTermoPesquisa] = useState(''); // Estado para o termo de pesquisa
-  const [termoPesquisaDebounced, setTermoPesquisaDebounced] = useState(''); // Para debounce
+  const [termoPesquisaInput, setTermoPesquisaInput] = useState(''); 
+  // CERTIFIQUE-SE QUE ESTA LINHA EXISTE E ESTÁ CORRETA:
+  const [termoPesquisaAtivo, setTermoPesquisaAtivo] = useState(''); 
 
-  // Debounce para a pesquisa
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setTermoPesquisaDebounced(termoPesquisa);
-    }, 500); // Executa a busca 500ms após o usuário parar de digitar
+  const fetchProdutos = useCallback(async (pageToFetch: number, searchTerm: string, isNewSearchOrRefresh: boolean) => {
+    if (isFetchingRef.current && !isNewSearchOrRefresh) {
+      console.log(`fetchProdutos: SKIP - Já buscando. Page: ${pageToFetch}, Termo: ${searchTerm}`);
+      return;
+    }
+    if (!isNewSearchOrRefresh && !hasMoreRef.current) {
+      console.log(`fetchProdutos: SKIP - Não há mais páginas. Page: ${pageToFetch}`);
+      setIsLoadingMore(false);
+      return;
+    }
 
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [termoPesquisa]);
+    isFetchingRef.current = true;
+    console.log(`FETCHING: page ${pageToFetch}, term: "${searchTerm}", newSearch/Refresh: ${isNewSearchOrRefresh}`);
+    if (isNewSearchOrRefresh) setIsLoading(true); else setIsLoadingMore(true);
+    if (isNewSearchOrRefresh) setError(null);
 
-
-  const fetchProdutos = useCallback(async (termoAtualDaPesquisa: string) => {
-    console.log("Buscando produtos com termo:", termoAtualDaPesquisa);
-    setIsLoading(true);
-    setError(null);
     try {
       const token = await SecureStore.getItemAsync('userToken');
-      if (!token) {
-        throw new Error("Token não encontrado. Faça login novamente.");
+      if (!token) throw new Error("Token não encontrado.");
+
+      let url = `${API_BASE_URL}/produtos?page=${pageToFetch}&size=${PAGE_SIZE}&sort=id,asc`;
+      if (searchTerm.trim() !== '') {
+        url += `&nome=${encodeURIComponent(searchTerm.trim())}`;
       }
 
-      let url = `${API_BASE_URL}/produtos`;
-      if (termoAtualDaPesquisa.trim() !== '') {
-        url += `?nome=${encodeURIComponent(termoAtualDaPesquisa.trim())}`;
-      }
-
-      const response = await axios.get(url, {
+      const response = await axios.get<PaginatedResponse<Produto>>(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      
-      // O backend retorna 204 No Content se a lista estiver vazia.
-      // Axios pode tratar isso como sucesso com response.data sendo undefined ou ""
-      if (response.status === 204 || !response.data) {
-        setProdutos([]);
+
+      if (response.data && response.data.content) {
+        setProdutos(prevProdutos => 
+            (isNewSearchOrRefresh || pageToFetch === 0) ? response.data.content : [...prevProdutos, ...response.data.content]
+        );
+        hasMoreRef.current = !response.data.last;
+        currentPageRef.current = response.data.number;
       } else {
-        setProdutos(response.data);
+        if (isNewSearchOrRefresh || pageToFetch === 0) setProdutos([]);
+        hasMoreRef.current = false;
       }
+      if (error && (isNewSearchOrRefresh || pageToFetch === 0)) setError(null);
 
     } catch (err: any) {
-      console.error("Erro ao buscar produtos:", err);
+      console.error("Erro ao buscar produtos:", JSON.stringify(err.response?.data || err.message));
       let errorMessage = "Não foi possível carregar os produtos.";
-      if (axios.isAxiosError(err) && err.response) {
-        if (err.response.status === 401 || err.response.status === 403) {
-          errorMessage = "Sessão expirada ou token inválido. Faça login novamente.";
-        } else if (err.response.status !== 204 && err.response.data?.message) { // Ignora 204 para mensagem
-            errorMessage = err.response.data.message;
-        } else if (err.response.status !== 204 && err.response.data && typeof err.response.data === 'string') {
-            errorMessage = err.response.data;
-        }
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      // Só define erro se não for uma resposta 204 (No Content) que pode ser tratada como lista vazia
-      if (!(axios.isAxiosError(err) && err.response?.status === 204)) {
-        setError(errorMessage);
-        // Alert.alert("Erro", errorMessage); // Opcional
-      } else {
-        setProdutos([]); // Se 204, a lista está vazia
-      }
+       if (axios.isAxiosError(err) && err.response) {
+            if (err.response.status === 401 || err.response.status === 403) errorMessage = "Sessão expirada ou token inválido.";
+            else if (err.response.data?.message) errorMessage = err.response.data.message;
+        } else if (err.message) errorMessage = err.message;
+      setError(errorMessage);
+      if (isNewSearchOrRefresh || pageToFetch === 0) setProdutos([]);
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
+      isFetchingRef.current = false;
     }
-  }, []); // useCallback com array de dependências vazio, pois 'termoAtualDaPesquisa' é passado como argumento
+  }, []); // useCallback com array de dependências vazio, pois refs são usadas para estados mutáveis dentro dela
 
-  // useEffect para buscar produtos quando termoPesquisaDebounced muda ou a tela foca
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (termoPesquisaInput !== termoPesquisaAtivo) {
+        console.log("Debounce: Atualizando termoPesquisaAtivo para:", termoPesquisaInput);
+        setTermoPesquisaAtivo(termoPesquisaInput);
+      }
+    }, 800);
+    return () => clearTimeout(handler);
+  }, [termoPesquisaInput, termoPesquisaAtivo]);
+
+  useEffect(() => {
+    console.log("useEffect[termoPesquisaAtivo]: Nova busca por termo:", termoPesquisaAtivo);
+    currentPageRef.current = 0; 
+    hasMoreRef.current = true;
+    fetchProdutos(0, termoPesquisaAtivo, true);
+  }, [termoPesquisaAtivo, fetchProdutos]);
+
   useFocusEffect(
     useCallback(() => {
-      fetchProdutos(termoPesquisaDebounced); // Usa o termo com debounce
-    }, [termoPesquisaDebounced, fetchProdutos]) // Adiciona fetchProdutos como dependência
+      console.log("useFocusEffect: Tela ganhou foco. Buscando com termo:", termoPesquisaAtivo);
+      currentPageRef.current = 0;
+      hasMoreRef.current = true;
+      fetchProdutos(0, termoPesquisaAtivo, true);
+      return () => { /* console.log("useFocusEffect: Tela perdeu foco."); */ };
+    }, [termoPesquisaAtivo, fetchProdutos])
   );
+  
+  const handleLoadMore = () => {
+    if (!isFetchingRef.current && hasMoreRef.current) {
+      console.log("handleLoadMore: Carregando próxima página:", currentPageRef.current + 1);
+      fetchProdutos(currentPageRef.current + 1, termoPesquisaAtivo, false);
+    }
+  };
+
+  const handleRefresh = () => {
+    console.log("handleRefresh: Puxou para atualizar. Termo ativo:", termoPesquisaAtivo);
+    currentPageRef.current = 0;
+    hasMoreRef.current = true;
+    fetchProdutos(0, termoPesquisaAtivo, true);
+  };
+  
+  const handleSearchSubmit = () => {
+    console.log("handleSearchSubmit: Submetendo pesquisa com termo:", termoPesquisaInput);
+    if (termoPesquisaInput !== termoPesquisaAtivo) {
+        setTermoPesquisaAtivo(termoPesquisaInput);
+    } else {
+        currentPageRef.current = 0;
+        hasMoreRef.current = true;
+        fetchProdutos(0, termoPesquisaInput, true);
+    }
+  };
 
   const confirmarDelecao = (produtoId: number, produtoNome: string) => {
-    Alert.alert(
-      "Confirmar Deleção",
-      `Tem certeza que deseja deletar a mercadoria "${produtoNome}"?`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        { text: "Deletar", onPress: () => handleDeletarProduto(produtoId), style: "destructive" }
-      ]
+    Alert.alert( "Confirmar Deleção", `Tem certeza que deseja deletar "${produtoNome}"?`,
+      [ { text: "Cancelar", style: "cancel" }, { text: "Deletar", onPress: () => handleDeletarProduto(produtoId), style: "destructive" } ]
     );
   };
 
@@ -119,44 +170,27 @@ export default function ListarMercadoriasScreen() {
     try {
       const token = await SecureStore.getItemAsync('userToken');
       if (!token) throw new Error("Token não encontrado.");
-      await axios.delete(`${API_BASE_URL}/produtos/${produtoId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      Alert.alert("Sucesso", "Mercadoria deletada com sucesso!");
-      fetchProdutos(termoPesquisaDebounced); // Recarrega com o termo de pesquisa atual
+      await axios.delete(`${API_BASE_URL}/produtos/${produtoId}`, { headers: { Authorization: `Bearer ${token}` } });
+      Alert.alert("Sucesso", "Mercadoria deletada!");
+      currentPageRef.current = 0;
+      hasMoreRef.current = true;
+      fetchProdutos(0, termoPesquisaAtivo, true); 
     } catch (error: any) {
-      // ... (tratamento de erro para deleção) ...
       Alert.alert("Erro", "Não foi possível deletar a mercadoria.");
     } finally {
       setIsDeleting(null);
     }
   };
 
-  const handleSearchSubmit = () => {
-    fetchProdutos(termoPesquisa); // Busca imediata ao submeter (Enter no teclado)
+  const renderFooter = () => {
+    if (isLoadingMore) {
+      return <View style={{ paddingVertical: 20 }}><ActivityIndicator size="large" color="#323588" /></View>;
+    }
+    if (!hasMoreRef.current && produtos.length > 0) {
+      return <View style={{ paddingVertical: 20 }}><Text style={listarMercadoriasStyles.emptyDataText}>Fim da lista.</Text></View>;
+    }
+    return null;
   };
-
-
-  if (isLoading && produtos.length === 0 && termoPesquisaDebounced === '') {
-    return (
-      <View style={listarMercadoriasStyles.centered}>
-        <ActivityIndicator size="large" color="#323588" />
-        <Text>Carregando mercadorias...</Text>
-      </View>
-    );
-  }
-
-  // Não mostra erro se estiver carregando uma nova pesquisa
-  if (error && !isLoading && produtos.length === 0) {
-    return (
-      <View style={listarMercadoriasStyles.centered}>
-        <Text style={listarMercadoriasStyles.errorText}>Erro ao carregar: {error}</Text>
-        <TouchableOpacity style={listarMercadoriasStyles.retryButton} onPress={() => fetchProdutos(termoPesquisaDebounced)}>
-          <Text style={listarMercadoriasStyles.retryButtonText}>Tentar Novamente</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
 
   const renderItem = ({ item }: { item: Produto }) => (
     <TouchableOpacity
@@ -175,37 +209,69 @@ export default function ListarMercadoriasScreen() {
         onPress={() => confirmarDelecao(item.id, item.nome)}
         disabled={isDeleting === item.id}
       >
-        {isDeleting === item.id ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-        ) : (
+        {isDeleting === item.id ? 
+            <ActivityIndicator size="small" color="#FFFFFF" /> : 
             <Text style={listarMercadoriasStyles.deleteButtonText}>Deletar</Text>
-        )}
+        }
       </TouchableOpacity>
     </TouchableOpacity>
   );
+
+  if (isLoading && produtos.length === 0 && currentPageRef.current === 0 && !error) {
+    return (
+      <View style={listarMercadoriasStyles.container}>
+        <Text style={listarMercadoriasStyles.headerTitle}>Lista de Mercadorias</Text>
+        <TextInput style={listarMercadoriasStyles.searchInput} placeholder="Pesquisar mercadoria por nome..." value={termoPesquisaInput} onChangeText={setTermoPesquisaInput} onSubmitEditing={handleSearchSubmit} returnKeyType="search" />
+        <View style={listarMercadoriasStyles.centered}>
+          <ActivityIndicator size="large" color="#323588" />
+          <Text style={listarMercadoriasStyles.loadingText}>Carregando mercadorias...</Text>
+        </View>
+      </View>
+    );
+  }
+  
+  if (error && produtos.length === 0 && !isLoading) {
+      return (
+        <View style={listarMercadoriasStyles.container}>
+          <Text style={listarMercadoriasStyles.headerTitle}>Lista de Mercadorias</Text>
+          <TextInput style={listarMercadoriasStyles.searchInput} placeholder="Pesquisar mercadoria por nome..." value={termoPesquisaInput} onChangeText={setTermoPesquisaInput} onSubmitEditing={handleSearchSubmit} returnKeyType="search" />
+          <View style={listarMercadoriasStyles.centered}>
+            <Text style={listarMercadoriasStyles.errorText}>Erro ao carregar: {error}</Text>
+            <TouchableOpacity style={listarMercadoriasStyles.retryButton} onPress={() => fetchProdutos(0, termoPesquisaAtivo, true)}>
+              <Text style={listarMercadoriasStyles.retryButtonText}>Tentar Novamente</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+  }
 
   return (
     <View style={listarMercadoriasStyles.container}>
       <Text style={listarMercadoriasStyles.headerTitle}>Lista de Mercadorias</Text>
       <TextInput
-        style={listarMercadoriasStyles.searchInput} // Você precisará adicionar este estilo
+        style={listarMercadoriasStyles.searchInput}
         placeholder="Pesquisar mercadoria por nome..."
-        value={termoPesquisa}
-        onChangeText={setTermoPesquisa} // Atualiza o termo para o debounce
-        onSubmitEditing={handleSearchSubmit} // Opcional: busca ao pressionar "Enter"
+        value={termoPesquisaInput}
+        onChangeText={setTermoPesquisaInput}
+        onSubmitEditing={handleSearchSubmit}
         returnKeyType="search"
       />
       <FlatList
         data={produtos}
         renderItem={renderItem}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item) => `produto-${item.id}`}
         contentContainerStyle={listarMercadoriasStyles.listContentContainer}
-        onRefresh={() => fetchProdutos(termoPesquisaDebounced)} // Pull-to-refresh busca com o termo atual
-        refreshing={isLoading}
+        onRefresh={handleRefresh}
+        refreshing={isLoading && currentPageRef.current === 0 && !isLoadingMore}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={renderFooter}
         ListEmptyComponent={
-            !isLoading && !error ? ( // Só mostra se não estiver carregando e não houver erro
+            !isLoading && !error && produtos.length === 0 ? (
                 <View style={listarMercadoriasStyles.centered}>
-                    <Text>Nenhuma mercadoria encontrada {termoPesquisaDebounced ? `para "${termoPesquisaDebounced}".` : 'cadastrada.'}</Text>
+                    <Text style={listarMercadoriasStyles.emptyDataText}>
+                        Nenhuma mercadoria encontrada {termoPesquisaAtivo ? `para "${termoPesquisaAtivo}".` : 'cadastrada.'}
+                    </Text>
                 </View>
             ) : null
         }

@@ -1,11 +1,11 @@
-import React, { useState, useCallback, useEffect } from 'react'; // Adicionado useEffect
-import { View, Text, FlatList, ActivityIndicator, Alert, TouchableOpacity, TextInput } from 'react-native'; // Adicionado TextInput
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { View, Text, FlatList, ActivityIndicator, Alert, TouchableOpacity, TextInput } from 'react-native';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import { styles as listarClientesStyles } from './stylesListarClientes'; // Seus estilos existentes
+import { styles as listarClientesStyles } from './stylesListarClientes';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../App'; // Ajuste o caminho
+import { RootStackParamList } from '../../App';
 
 export interface Cliente {
   id: number;
@@ -14,85 +14,134 @@ export interface Cliente {
   email?: string;
 }
 
-const API_BASE_URL = 'http://192.168.1.5:8080'; // Sua API base
+interface PaginatedResponse<T> {
+  content: T[];
+  totalPages: number;
+  totalElements: number;
+  number: number;
+  size: number;
+  first: boolean;
+  last: boolean;
+  empty: boolean;
+}
+
+const API_BASE_URL = 'http://192.168.1.5:8080';
+const PAGE_SIZE = 10;
 
 type ListarClientesNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ListarClientes'>;
 
 export default function ListarClientesScreen() {
   const navigation = useNavigation<ListarClientesNavigationProp>();
+  
   const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isProcessing, setIsProcessing] = useState<number | null>(null); // Para feedback de deleção/edição
+  const [isLoading, setIsLoading] = useState(false); 
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isProcessing, setIsProcessing] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  const currentPageRef = useRef(0);
+  const hasMoreRef = useRef(true);
+  const isFetchingRef = useRef(false);
 
-  const [termoPesquisa, setTermoPesquisa] = useState(''); // Estado para o termo de pesquisa
-  const [termoPesquisaDebounced, setTermoPesquisaDebounced] = useState(''); // Para debounce
+  const [termoPesquisaInput, setTermoPesquisaInput] = useState(''); 
+  const [termoPesquisaAtivo, setTermoPesquisaAtivo] = useState(''); 
 
-  // Debounce para a pesquisa
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setTermoPesquisaDebounced(termoPesquisa);
-    }, 500); // Executa a busca 500ms após o usuário parar de digitar
+  const fetchClientes = useCallback(async (pageToFetch: number, searchTerm: string, isNewSearchOrRefresh: boolean) => {
+    if (isFetchingRef.current && !isNewSearchOrRefresh) {
+        return;
+    }
+    if (!isNewSearchOrRefresh && !hasMoreRef.current) {
+        setIsLoadingMore(false);
+        return;
+    }
 
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [termoPesquisa]);
+    isFetchingRef.current = true;
+    console.log(`FETCHING CLIENTES: page ${pageToFetch}, term: "${searchTerm}", newSearch/Refresh: ${isNewSearchOrRefresh}`);
+    if (isNewSearchOrRefresh) setIsLoading(true); else setIsLoadingMore(true);
+    if (isNewSearchOrRefresh) setError(null);
 
-  const fetchClientes = useCallback(async (termoAtualDaPesquisa: string) => {
-    console.log("Buscando clientes com termo:", termoAtualDaPesquisa);
-    setIsLoading(true);
-    setError(null);
     try {
       const token = await SecureStore.getItemAsync('userToken');
-      if (!token) {
-        throw new Error("Token não encontrado. Faça login novamente.");
+      if (!token) throw new Error("Token não encontrado.");
+
+      let url = `${API_BASE_URL}/clientes?page=${pageToFetch}&size=${PAGE_SIZE}&sort=nome,asc`;
+      if (searchTerm.trim() !== '') {
+        url += `&nome=${encodeURIComponent(searchTerm.trim())}`;
       }
 
-      let url = `${API_BASE_URL}/clientes`;
-      if (termoAtualDaPesquisa.trim() !== '') {
-        url += `?nome=${encodeURIComponent(termoAtualDaPesquisa.trim())}`;
-      }
-
-      const response = await axios.get(url, {
+      const response = await axios.get<PaginatedResponse<Cliente>>(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (response.status === 204 || !response.data) {
-        setClientes([]);
+      if (response.data && response.data.content) {
+        setClientes(prevClientes => 
+            (isNewSearchOrRefresh || pageToFetch === 0) ? response.data.content : [...prevClientes, ...response.data.content]
+        );
+        hasMoreRef.current = !response.data.last;
+        currentPageRef.current = response.data.number;
       } else {
-        setClientes(response.data);
+        if (isNewSearchOrRefresh || pageToFetch === 0) setClientes([]);
+        hasMoreRef.current = false;
       }
+      if (error && (isNewSearchOrRefresh || pageToFetch === 0)) setError(null);
 
     } catch (err: any) {
-      console.error("Erro ao buscar clientes:", err);
+      console.error("Erro ao buscar clientes:", JSON.stringify(err.response?.data || err.message));
       let errorMessage = "Não foi possível carregar os clientes.";
-      if (axios.isAxiosError(err) && err.response) {
-        if (err.response.status === 401 || err.response.status === 403) {
-          errorMessage = "Sessão expirada ou token inválido. Faça login novamente.";
-        } else if (err.response.status !== 204 && err.response.data?.message) {
-            errorMessage = err.response.data.message;
-        } else if (err.response.status !== 204 && err.response.data && typeof err.response.data === 'string') {
-            errorMessage = err.response.data;
-        }
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      if (!(axios.isAxiosError(err) && err.response?.status === 204)) {
-        setError(errorMessage);
-      } else {
-        setClientes([]);
-      }
+       if (axios.isAxiosError(err) && err.response) {
+            if (err.response.status === 401 || err.response.status === 403) errorMessage = "Sessão expirada ou token inválido.";
+            else if (err.response.data?.message) errorMessage = err.response.data.message;
+        } else if (err.message) errorMessage = err.message;
+      setError(errorMessage);
+      if (isNewSearchOrRefresh || pageToFetch === 0) setClientes([]);
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
+      isFetchingRef.current = false;
     }
-  }, []); // useCallback com array de dependências vazio
+  }, []);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (termoPesquisaInput !== termoPesquisaAtivo) {
+        setTermoPesquisaAtivo(termoPesquisaInput);
+      }
+    }, 800);
+    return () => clearTimeout(handler);
+  }, [termoPesquisaInput, termoPesquisaAtivo]);
+
+  useEffect(() => {
+    currentPageRef.current = 0; 
+    hasMoreRef.current = true;
+    fetchClientes(0, termoPesquisaAtivo, true);
+  }, [termoPesquisaAtivo, fetchClientes]);
 
   useFocusEffect(
     useCallback(() => {
-      fetchClientes(termoPesquisaDebounced); // Usa o termo com debounce
-    }, [termoPesquisaDebounced, fetchClientes]) // Adiciona fetchClientes como dependência
+      currentPageRef.current = 0;
+      hasMoreRef.current = true;
+      fetchClientes(0, termoPesquisaAtivo, true);
+      return () => {};
+    }, [termoPesquisaAtivo, fetchClientes])
   );
+  
+  const handleLoadMore = () => {
+    if (!isFetchingRef.current && hasMoreRef.current) {
+      fetchClientes(currentPageRef.current + 1, termoPesquisaAtivo, false);
+    }
+  };
+
+  const handleRefresh = () => {
+    fetchClientes(0, termoPesquisaAtivo, true);
+  };
+  
+  const handleSearchSubmit = () => {
+    if (termoPesquisaInput !== termoPesquisaAtivo) {
+        setTermoPesquisaAtivo(termoPesquisaInput);
+    } else {
+        fetchClientes(0, termoPesquisaInput, true);
+    }
+  };
 
   const confirmarDelecaoCliente = (clienteId: number, clienteNome: string) => {
     Alert.alert(
@@ -114,7 +163,7 @@ export default function ListarClientesScreen() {
         headers: { Authorization: `Bearer ${token}` },
       });
       Alert.alert("Sucesso", "Cliente deletado com sucesso!");
-      fetchClientes(termoPesquisaDebounced); // Recarrega com o termo de pesquisa atual
+      fetchClientes(0, termoPesquisaAtivo, true); // Recarrega a lista
     } catch (error: any) {
       console.error("Erro ao deletar cliente:", error);
       Alert.alert("Erro", "Não foi possível deletar o cliente.");
@@ -123,29 +172,15 @@ export default function ListarClientesScreen() {
     }
   };
 
-  const handleSearchSubmit = () => {
-    fetchClientes(termoPesquisa); // Busca imediata ao submeter
+  const renderFooter = (): React.ReactElement | null => { // Especificando o tipo de retorno
+    if (isLoadingMore) {
+      return <View style={{ paddingVertical: 20 }}><ActivityIndicator size="large" color="#323588" /></View>;
+    }
+    if (!hasMoreRef.current && clientes.length > 0) {
+      return <View style={{ paddingVertical: 20 }}><Text style={listarClientesStyles.emptyDataText}>Fim da lista.</Text></View>;
+    }
+    return null; // Retorno explícito de null
   };
-
-  if (isLoading && clientes.length === 0 && termoPesquisaDebounced === '') {
-    return (
-      <View style={listarClientesStyles.centered}>
-        <ActivityIndicator size="large" color="#323588" />
-        <Text>Carregando clientes...</Text>
-      </View>
-    );
-  }
-
-  if (error && !isLoading && clientes.length === 0) {
-    return (
-      <View style={listarClientesStyles.centered}>
-        <Text style={listarClientesStyles.errorText}>Erro ao carregar: {error}</Text>
-        <TouchableOpacity style={listarClientesStyles.retryButton} onPress={() => fetchClientes(termoPesquisaDebounced)}>
-          <Text style={listarClientesStyles.retryButtonText}>Tentar Novamente</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
 
   const renderItem = ({ item }: { item: Cliente }) => (
     <View style={listarClientesStyles.itemContainer}>
@@ -173,28 +208,61 @@ export default function ListarClientesScreen() {
     </View>
   );
 
+  if (isLoading && clientes.length === 0 && currentPageRef.current === 0 && !error) {
+    return (
+      <View style={listarClientesStyles.container}>
+        <Text style={listarClientesStyles.headerTitle}>Lista de Clientes</Text>
+        <TextInput style={listarClientesStyles.searchInput} placeholder="Pesquisar cliente por nome..." value={termoPesquisaInput} onChangeText={setTermoPesquisaInput} onSubmitEditing={handleSearchSubmit} returnKeyType="search" />
+        <View style={listarClientesStyles.centered}>
+          <ActivityIndicator size="large" color="#323588" />
+          <Text style={listarClientesStyles.loadingText}>Carregando clientes...</Text>
+        </View>
+      </View>
+    );
+  }
+  
+  if (error && clientes.length === 0 && !isLoading) {
+      return (
+        <View style={listarClientesStyles.container}>
+          <Text style={listarClientesStyles.headerTitle}>Lista de Clientes</Text>
+          <TextInput style={listarClientesStyles.searchInput} placeholder="Pesquisar cliente por nome..." value={termoPesquisaInput} onChangeText={setTermoPesquisaInput} onSubmitEditing={handleSearchSubmit} returnKeyType="search" />
+          <View style={listarClientesStyles.centered}>
+            <Text style={listarClientesStyles.errorText}>Erro ao carregar: {error}</Text>
+            <TouchableOpacity style={listarClientesStyles.retryButton} onPress={() => fetchClientes(0, termoPesquisaAtivo, true)}>
+              <Text style={listarClientesStyles.retryButtonText}>Tentar Novamente</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+  }
+
   return (
     <View style={listarClientesStyles.container}>
       <Text style={listarClientesStyles.headerTitle}>Lista de Clientes</Text>
       <TextInput
-        style={listarClientesStyles.searchInput} // Adicione este estilo em stylesListarClientes.ts
+        style={listarClientesStyles.searchInput}
         placeholder="Pesquisar cliente por nome..."
-        value={termoPesquisa}
-        onChangeText={setTermoPesquisa}
+        value={termoPesquisaInput}
+        onChangeText={setTermoPesquisaInput}
         onSubmitEditing={handleSearchSubmit}
         returnKeyType="search"
       />
       <FlatList
         data={clientes}
         renderItem={renderItem}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item) => `cliente-${item.id}`} // Chave prefixada para garantir unicidade
         contentContainerStyle={listarClientesStyles.listContentContainer}
-        onRefresh={() => fetchClientes(termoPesquisaDebounced)}
-        refreshing={isLoading}
+        onRefresh={handleRefresh}
+        refreshing={isLoading && currentPageRef.current === 0 && !isLoadingMore}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={renderFooter} // Tipo de retorno de renderFooter agora está correto
         ListEmptyComponent={
-            !isLoading && !error ? (
+            !isLoading && !error && clientes.length === 0 ? (
                 <View style={listarClientesStyles.centered}>
-                    <Text>Nenhum cliente encontrado {termoPesquisaDebounced ? `para "${termoPesquisaDebounced}".` : 'cadastrado.'}</Text>
+                    <Text style={listarClientesStyles.emptyDataText}>
+                        Nenhum cliente encontrado {termoPesquisaAtivo ? `para "${termoPesquisaAtivo}".` : 'cadastrado.'}
+                    </Text>
                 </View>
             ) : null
         }
