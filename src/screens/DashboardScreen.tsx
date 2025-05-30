@@ -29,7 +29,7 @@ export default function DashboardScreen({ onLogout }: DashboardScreenProps) {
     { title: 'Vendas', routeName: 'VendasScreen' as keyof RootStackParamList, iconName: 'currency-usd' },
     { title: 'Fornecedores', routeName: 'FornecedoresScreen' as keyof RootStackParamList, iconName: 'truck-delivery-outline' },
     { title: 'Status/Relatórios', routeName: 'StatusScreen' as keyof RootStackParamList, iconName: 'chart-bar' },
-    //{ title: 'Configurações', routeName: 'ConfiguracoesScreen' as keyof RootStackParamList, iconName: 'cog-outline' },
+    //{ title: 'Configurações', routeName: 'ConfiguracoesScreen' as keyof RootStackParamList, iconName: 'cog-outline' }, // Ainda não implementado
   ];
 
   return (
@@ -42,7 +42,7 @@ export default function DashboardScreen({ onLogout }: DashboardScreenProps) {
             style={styles.headerLogo} 
             resizeMode="contain" 
           />
-          {/* Se quiser o texto "Moda Vintage" ao lado do logo no header: */}
+          {/* : */}
           {/* <Text style={styles.headerTitleText}>Moda Vintage</Text> */}
         </View>
 

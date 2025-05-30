@@ -7,12 +7,12 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../App';
+import { RootStackParamList } from '../../App'; // Ajuste o caminho se necessário
 import { styles } from './stylesRegistrarVenda';
-import { Cliente } from './ListarClientesScreen';
-import { Produto } from './ListarMercadoriasScreen';
+import { Cliente } from './ListarClientesScreen'; // Certifique-se que este caminho está correto
+import { Produto } from './ListarMercadoriasScreen'; // Certifique-se que este caminho está correto
 
-const API_BASE_URL = 'http://192.168.1.5:8080'; // Sua API base
+const API_BASE_URL = 'http://192.168.1.5:8080';
 
 interface ItemVendaInput {
   produto: Produto;
@@ -29,7 +29,8 @@ export default function RegistrarVendaScreen() {
   const [itensVenda, setItensVenda] = useState<ItemVendaInput[]>([]);
   const [dataVenda, setDataVenda] = useState(new Date());
   const [totalVenda, setTotalVenda] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // Para o botão "Registrar Venda"
+  const [isFetchingModalData, setIsFetchingModalData] = useState(false); // Novo estado para loading dos modais
 
   const [clienteModalVisible, setClienteModalVisible] = useState(false);
   const [produtoModalVisible, setProdutoModalVisible] = useState(false);
@@ -45,40 +46,59 @@ export default function RegistrarVendaScreen() {
   const [produtoParaAdicionar, setProdutoParaAdicionar] = useState<Produto | null>(null);
   const [quantidadeProdutoInput, setQuantidadeProdutoInput] = useState('1');
 
-  // Novos estados para edição de quantidade do item
   const [itemParaEditarQuantidade, setItemParaEditarQuantidade] = useState<ItemVendaInput | null>(null);
   const [novaQuantidadeInput, setNovaQuantidadeInput] = useState('');
   const [editQuantityModalVisible, setEditQuantityModalVisible] = useState(false);
 
   const fetchDataForModals = async () => {
+    setIsFetchingModalData(true); // Inicia loading dos dados do modal
     try {
       const token = await SecureStore.getItemAsync('userToken');
-      if (!token) throw new Error("Token não encontrado.");
-      const [clientesRes, produtosRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/clientes`, { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get(`${API_BASE_URL}/produtos`, { headers: { Authorization: `Bearer ${token}` } })
-      ]);
-      const clientesData = clientesRes.data || [];
-      const produtosData = (produtosRes.data || []).filter((p: Produto) => p.estoque > 0);
+      if (!token) {
+        Alert.alert("Autenticação", "Token não encontrado. Faça login novamente.");
+        setIsFetchingModalData(false);
+        return; // Interrompe se não houver token
+      }
 
+      console.log("Buscando todos os clientes para modal via /clientes/todos...");
+      console.log("Buscando todos os produtos para modal via /produtos/todos...");
+
+      const [clientesRes, produtosRes] = await Promise.all([
+        axios.get<Cliente[]>(`${API_BASE_URL}/clientes/todos`, { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get<Produto[]>(`${API_BASE_URL}/produtos/todos`, { headers: { Authorization: `Bearer ${token}` } })
+      ]);
+
+      const clientesData = clientesRes.data || []; // API agora retorna array diretamente
+      console.log("Clientes recebidos para modal:", clientesData.length);
       setListaClientesMaster(clientesData);
       setListaClientesFiltrada(clientesData);
-      setListaProdutosMaster(produtosData);
-      setListaProdutosFiltrada(produtosData);
-    } catch (error) {
-      console.error("Erro ao buscar dados para modais:", error);
+
+      const produtosData = produtosRes.data || []; // API agora retorna array diretamente
+      console.log("Produtos recebidos para modal:", produtosData.length);
+      const produtosComEstoque = produtosData.filter((p: Produto) => p.estoque > 0);
+      setListaProdutosMaster(produtosComEstoque);
+      setListaProdutosFiltrada(produtosComEstoque);
+
+    } catch (error: any) {
+      console.error("Erro ao buscar dados para modais:", JSON.stringify(error.response?.data || error.message));
       Alert.alert("Erro", "Não foi possível carregar dados de clientes ou produtos para seleção.");
+    } finally {
+      setIsFetchingModalData(false); // Finaliza loading dos dados do modal
     }
   };
 
   useFocusEffect(
     useCallback(() => {
       fetchDataForModals();
+      // Resetar o formulário de venda ao focar na tela
       setSelectedCliente(null);
       setItensVenda([]);
       setDataVenda(new Date());
       setSearchTermCliente('');
       setSearchTermProduto('');
+      setProdutoParaAdicionar(null);
+      setQuantidadeProdutoInput('1');
+      console.log("RegistrarVendaScreen focado, formulário resetado e dados dos modais buscados.");
       return () => {};
     }, [])
   );
@@ -133,7 +153,7 @@ export default function RegistrarVendaScreen() {
     if (itemExistenteIndex > -1) {
       const qtdTotalNova = novosItens[itemExistenteIndex].quantidadeVendida + quantidade;
       if (qtdTotalNova > produtoParaAdicionar.estoque) {
-        Alert.alert("Estoque Insuficiente", `Você já tem ${novosItens[itemExistenteIndex].quantidadeVendida}. Estoque total para "${produtoParaAdicionar.nome}": ${produtoParaAdicionar.estoque}.`); return;
+        Alert.alert("Estoque Insuficiente", `Você já tem ${novosItens[itemExistenteIndex].quantidadeVendida} no carrinho. Estoque total para "${produtoParaAdicionar.nome}": ${produtoParaAdicionar.estoque}.`); return;
       }
       novosItens[itemExistenteIndex].quantidadeVendida = qtdTotalNova;
     } else {
@@ -195,7 +215,7 @@ export default function RegistrarVendaScreen() {
       };
       await axios.post(`${API_BASE_URL}/vendas`, payload, { headers: { Authorization: `Bearer ${token}` } });
       Alert.alert("Sucesso", "Venda registrada com sucesso!");
-      navigation.navigate('Dashboard');
+      navigation.goBack(); // Volta para VendasScreen, que ao focar pode recarregar listas de vendas
     } catch (error: any) {
       console.error("Erro ao registrar venda:", JSON.stringify(error.response?.data || error.message));
       let errorMessage = "Não foi possível registrar a venda.";
@@ -212,12 +232,13 @@ export default function RegistrarVendaScreen() {
     }
   };
 
-  const renderClienteItemModal = ({ item }: { item: Cliente }) => ( /* ... como antes ... */ 
+  const renderClienteItemModal = ({ item }: { item: Cliente }) => (
     <TouchableOpacity style={styles.modalItem} onPress={() => handleSelecionarCliente(item)}>
       <Text style={styles.modalItemText}>{item.nome}</Text>
     </TouchableOpacity>
   );
-  const renderProdutoItemModal = ({ item }: { item: Produto }) => ( /* ... como antes ... */ 
+
+  const renderProdutoItemModal = ({ item }: { item: Produto }) => (
     <TouchableOpacity style={styles.modalItem} onPress={() => handleSelecionarProdutoParaAdicionar(item)}>
       <Text style={styles.modalItemText}>{item.nome} (Est: {item.estoque}) - R$ {item.preco.toFixed(2)}</Text>
     </TouchableOpacity>
@@ -255,7 +276,14 @@ export default function RegistrarVendaScreen() {
       <Text style={styles.headerTitle}>Registrar Nova Venda</Text>
 
       <Text style={styles.sectionTitle}>Cliente (Opcional)</Text>
-      <TouchableOpacity style={styles.pickerButton} onPress={() => { setSearchTermCliente(''); setClienteModalVisible(true); }}>
+      <TouchableOpacity 
+        style={styles.pickerButton} 
+        onPress={() => { 
+            setSearchTermCliente(''); // Limpa a pesquisa ao abrir o modal
+            setListaClientesFiltrada(listaClientesMaster); // Mostra todos os clientes inicialmente
+            setClienteModalVisible(true); 
+        }}
+      >
         <Text style={styles.pickerButtonText}>{selectedCliente ? selectedCliente.nome : "Selecionar Cliente"}</Text>
       </TouchableOpacity>
 
@@ -263,9 +291,20 @@ export default function RegistrarVendaScreen() {
       <TextInput style={styles.input} value={dataVenda.toLocaleDateString('pt-BR')} editable={false} />
 
       <Text style={styles.sectionTitle}>Itens da Venda</Text>
-      <TouchableOpacity style={styles.pickerButton} onPress={() => { setProdutoParaAdicionar(null); setQuantidadeProdutoInput("1"); setSearchTermProduto(''); setProdutoModalVisible(true); }}>
+      <TouchableOpacity 
+        style={styles.pickerButton} 
+        onPress={() => { 
+            setProdutoParaAdicionar(null); 
+            setQuantidadeProdutoInput("1"); 
+            setSearchTermProduto(''); // Limpa a pesquisa ao abrir o modal
+            setListaProdutosFiltrada(listaProdutosMaster.filter(p => p.estoque > 0)); // Mostra todos com estoque
+            setProdutoModalVisible(true); 
+        }}
+      >
         <Text style={styles.pickerButtonText}>+ Adicionar Produto à Venda</Text>
       </TouchableOpacity>
+
+      {isFetchingModalData && <ActivityIndicator style={{marginVertical: 10}} size="small" color="#323588" />}
 
       {itensVenda.length > 0 && (
         <FlatList
@@ -273,7 +312,7 @@ export default function RegistrarVendaScreen() {
           scrollEnabled={false}
           keyExtractor={(item, index) => `${item.produto.id}_${index}_${item.quantidadeVendida}`}
           renderItem={renderItemVendaNaTela}
-          style={{ maxHeight: 250, marginTop: 10, width: '100%' }} // Adicionado width
+          style={{ maxHeight: 250, marginTop: 10, width: '100%' }}
         />
       )}
 
@@ -303,9 +342,9 @@ export default function RegistrarVendaScreen() {
               <>
                 <Text style={styles.modalTitle}>Selecione um Produto</Text>
                 <TextInput style={styles.modalSearchInput} placeholder="Pesquisar produto..." value={searchTermProduto} onChangeText={setSearchTermProduto} />
-                <FlatList data={listaProdutosFiltrada} renderItem={renderProdutoItemModal} keyExtractor={(item) => item.id.toString()} style={{width: '100%', maxHeight: '50%'}} ListEmptyComponent={<Text>Nenhum produto encontrado.</Text>} />
+                <FlatList data={listaProdutosFiltrada} renderItem={renderProdutoItemModal} keyExtractor={(item) => item.id.toString()} style={{width: '100%', maxHeight: '50%'}} ListEmptyComponent={<Text>Nenhum produto encontrado ou com estoque.</Text>} />
               </>
-            ) : ( /* Etapa de definir quantidade */
+            ) : ( 
               <>
                 <Text style={styles.modalTitle}>Adicionar: {produtoParaAdicionar.nome}</Text>
                 <Text style={styles.infoText}>Preço Unit.: R$ {produtoParaAdicionar.preco.toFixed(2)}</Text>
@@ -315,13 +354,13 @@ export default function RegistrarVendaScreen() {
                     <TextInput style={styles.quantityInput} value={quantidadeProdutoInput} onChangeText={setQuantidadeProdutoInput} keyboardType="number-pad" maxLength={3} autoFocus={true} />
                 </View>
                 <TouchableOpacity style={styles.confirmAddItemButton} onPress={handleConfirmarAdicaoItem}>
-                    <Text style={styles.confirmAddItemButtonText}>Confirmar Item</Text>
+                    <Text style={styles.confirmAddItemButtonText}>Adicionar Item à Venda</Text>
                 </TouchableOpacity>
               </>
             )}
             <View style={styles.modalButtonContainer}>
                 <RNButton title={produtoParaAdicionar ? "Voltar para Lista de Produtos" : "Fechar"} onPress={() => {
-                    if (produtoParaAdicionar) { setProdutoParaAdicionar(null); setSearchTermProduto('');}
+                    if (produtoParaAdicionar) { setProdutoParaAdicionar(null); /* Não limpa searchTermProduto aqui para manter o filtro */ }
                     else { setProdutoModalVisible(false); setSearchTermProduto('');}
                 }} color="#8B0000"/>
             </View>
@@ -333,11 +372,7 @@ export default function RegistrarVendaScreen() {
         animationType="slide"
         transparent={true}
         visible={editQuantityModalVisible}
-        onRequestClose={() => {
-          setEditQuantityModalVisible(false);
-          setItemParaEditarQuantidade(null);
-          setNovaQuantidadeInput('');
-        }}>
+        onRequestClose={() => { setEditQuantityModalVisible(false); setItemParaEditarQuantidade(null); setNovaQuantidadeInput(''); }}>
         <View style={styles.centeredView}>
           <View style={styles.modalView}>
             {itemParaEditarQuantidade && (
@@ -371,7 +406,6 @@ export default function RegistrarVendaScreen() {
           </View>
         </View>
       </Modal>
-
     </ScrollView>
   );
 }

@@ -1,13 +1,13 @@
-import React, { useState, useCallback } from 'react'; // Import useCallback
-import { View, Text, FlatList, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { View, Text, FlatList, ActivityIndicator, Alert, TouchableOpacity, TextInput } from 'react-native'; // Adicionado TextInput para futura pesquisa
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import { styles } from './stylesListarVendas';
+import { styles as listarVendasStyles } from './stylesListarVendas'; // Seus estilos
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../App'; // Ajuste o caminho se necessário
-import { Cliente } from './ListarClientesScreen'; // Ajuste o caminho se necessário
-import { Produto } from './ListarMercadoriasScreen'; // Ajuste o caminho se necessário
+import { RootStackParamList } from '../../App';
+import { Cliente } from './ListarClientesScreen';
+import { Produto } from './ListarMercadoriasScreen';
 
 // Interface para ItemVenda como vem do backend
 interface ItemVenda {
@@ -26,178 +26,236 @@ export interface Venda {
   dataVenda: string; // Data como string ISO
 }
 
-const API_BASE_URL = 'http://192.168.1.5:8080'; // Sua API base
+// Interface para a resposta paginada da API
+interface PaginatedResponse<T> {
+  content: T[];
+  totalPages: number;
+  totalElements: number;
+  number: number; // Número da página atual (0-indexed)
+  size: number;
+  first: boolean;
+  last: boolean;
+  empty: boolean;
+}
+
+const API_BASE_URL = 'http://192.168.1.5:8080';
+const PAGE_SIZE = 10; // Quantas vendas carregar por página
 
 type ListarVendasNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ListarVendas'>;
 
 export default function ListarVendasScreen() {
   const navigation = useNavigation<ListarVendasNavigationProp>();
+  
   const [vendas, setVendas] = useState<Venda[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); 
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  // const [isDeleting, setIsDeleting] = useState<number | null>(null); // Para futura deleção
   const [error, setError] = useState<string | null>(null);
+  
+  const currentPageRef = useRef(0);
+  const hasMoreRef = useRef(true);
+  const isFetchingRef = useRef(false);
 
-  const fetchVendas = async () => {
-    console.log("ListarVendasScreen: Iniciando fetchVendas..."); // DEBUG
-    setIsLoading(true);
-    setError(null);
-    let token: string | null = null; // Declarar token aqui para estar acessível no log de erro
+  // Estados para futura pesquisa (ex: por nome do cliente ou ID da venda)
+  // const [termoPesquisaInput, setTermoPesquisaInput] = useState(''); 
+  // const [termoPesquisaAtivo, setTermoPesquisaAtivo] = useState(''); 
+
+  const fetchVendas = useCallback(async (pageToFetch: number, /*searchTerm: string,*/ isNewSearchOrRefresh: boolean) => {
+    if (isFetchingRef.current && !isNewSearchOrRefresh) {
+      console.log(`fetchVendas: SKIP - Já buscando. Page: ${pageToFetch}`);
+      return;
+    }
+    if (!isNewSearchOrRefresh && !hasMoreRef.current) {
+      console.log(`fetchVendas: SKIP - Não há mais páginas. Page: ${pageToFetch}`);
+      setIsLoadingMore(false);
+      return;
+    }
+
+    isFetchingRef.current = true;
+    console.log(`FETCHING VENDAS: page ${pageToFetch}, newSearch/Refresh: ${isNewSearchOrRefresh}`);
+    if (isNewSearchOrRefresh) setIsLoading(true); else setIsLoadingMore(true);
+    if (isNewSearchOrRefresh) setError(null);
+
     try {
-      token = await SecureStore.getItemAsync('userToken');
-      console.log("ListarVendasScreen: Token do SecureStore:", token); // DEBUG
+      const token = await SecureStore.getItemAsync('userToken');
+      if (!token) throw new Error("Token não encontrado.");
 
-      if (!token) {
-        console.error("ListarVendasScreen: Token não encontrado no SecureStore."); // DEBUG
-        Alert.alert("Autenticação", "Token não encontrado. Faça login novamente.");
-        setIsLoading(false);
-        // Considerar navegação para Login ou uma ação de logout
-        // navigation.navigate('Login');
-        return;
-      }
+      // Assumindo que o backend /vendas agora aceita paginação e ordenação
+      // Ordenando pela data da venda, mais recentes primeiro
+      let url = `${API_BASE_URL}/vendas?page=${pageToFetch}&size=${PAGE_SIZE}&sortBy=dataVenda&sortDir=desc`;
+      // if (searchTerm.trim() !== '') { // Para futura pesquisa
+      //   url += `&filtro=${encodeURIComponent(searchTerm.trim())}`; // Ajuste o nome do parâmetro de filtro
+      // }
 
-      console.log("ListarVendasScreen: Fazendo requisição para GET /vendas com token."); // DEBUG
-      const response = await axios.get<Venda[]>(`${API_BASE_URL}/vendas`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const response = await axios.get<PaginatedResponse<Venda>>(url, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-      console.log("ListarVendasScreen: Resposta da API /vendas:", response.status); // DEBUG (response.data pode ser muito grande para logar inteiro)
-      // console.log("ListarVendasScreen: Dados recebidos:", JSON.stringify(response.data, null, 2)); // DEBUG (se precisar ver os dados)
-      setVendas(response.data);
-    } catch (err: any) {
-      console.error("ListarVendasScreen: Erro detalhado ao buscar vendas:", JSON.stringify(err)); // DEBUG MAIS DETALHADO
-      if (axios.isAxiosError(err)) {
-        console.error("ListarVendasScreen: Erro Axios Status:", err.response?.status); // DEBUG
-        console.error("ListarVendasScreen: Erro Axios Data:", JSON.stringify(err.response?.data)); // DEBUG
-      }
 
-      let errorMessage = "Não foi possível carregar as vendas.";
-      if (axios.isAxiosError(err) && err.response) {
-        if (err.response.status === 401 || err.response.status === 403) {
-            errorMessage = `Erro de Autenticação/Autorização (${err.response.status}). Verifique o token ou as permissões no backend.`;
-            // Aqui você pode querer deslogar o usuário e navegar para o login
-            // await SecureStore.deleteItemAsync('userToken');
-            // navigation.navigate('Login');
-        } else if (err.response.data?.message) {
-            errorMessage = err.response.data.message;
-        } else if (err.response.data && typeof err.response.data === 'string' && err.response.data.length < 200) { // Evita logar HTML de erro
-            errorMessage = err.response.data;
-        }
-      } else if (err.message) {
-        errorMessage = err.message;
+      if (response.data && response.data.content) {
+        setVendas(prevVendas => 
+            (isNewSearchOrRefresh || pageToFetch === 0) ? response.data.content : [...prevVendas, ...response.data.content]
+        );
+        hasMoreRef.current = !response.data.last;
+        currentPageRef.current = response.data.number;
+      } else {
+        if (isNewSearchOrRefresh || pageToFetch === 0) setVendas([]);
+        hasMoreRef.current = false;
       }
+      if (error && (isNewSearchOrRefresh || pageToFetch === 0)) setError(null);
+
+    } catch (err: any) {
+      console.error("Erro ao buscar vendas:", JSON.stringify(err.response?.data || err.message));
+      let errorMessage = "Não foi possível carregar o histórico de vendas.";
+       if (axios.isAxiosError(err) && err.response) {
+            if (err.response.status === 401 || err.response.status === 403) errorMessage = "Sessão expirada ou token inválido.";
+            else if (err.response.data?.message) errorMessage = err.response.data.message;
+        } else if (err.message) errorMessage = err.message;
       setError(errorMessage);
-      Alert.alert("Erro ao Listar Vendas", errorMessage);
+      if (isNewSearchOrRefresh || pageToFetch === 0) setVendas([]);
     } finally {
       setIsLoading(false);
-      console.log("ListarVendasScreen: fetchVendas finalizado."); // DEBUG
+      setIsLoadingMore(false);
+      isFetchingRef.current = false;
+    }
+  }, []); // useCallback sem dependências problemáticas
+
+  // Efeito para debounce (se implementar pesquisa)
+  // useEffect(() => { ... }, [termoPesquisaInput, termoPesquisaAtivo]);
+
+  // Efeito para buscar quando termoPesquisaAtivo mudar (se implementar pesquisa)
+  // useEffect(() => {
+  //   currentPageRef.current = 0; 
+  //   hasMoreRef.current = true;
+  //   fetchVendas(0, termoPesquisaAtivo, true);
+  // }, [termoPesquisaAtivo, fetchVendas]);
+
+  useFocusEffect(
+    useCallback(() => {
+      console.log("useFocusEffect: Tela ListarVendas ganhou foco.");
+      currentPageRef.current = 0;
+      hasMoreRef.current = true;
+      // setVendas([]); // fetchVendas com isNewSearchOrRefresh=true lida com isso
+      fetchVendas(0 /*termoPesquisaAtivo*/, true); // "" para termo de pesquisa inicial
+      return () => {};
+    }, [fetchVendas /*, termoPesquisaAtivo*/]) // Adicionar termoPesquisaAtivo se/quando a pesquisa for implementada
+  );
+  
+  const handleLoadMore = () => {
+    if (!isFetchingRef.current && hasMoreRef.current) {
+      console.log("handleLoadMore Vendas: Carregando próxima página:", currentPageRef.current + 1);
+      fetchVendas(currentPageRef.current + 1, false);
     }
   };
 
-  useFocusEffect(
-    useCallback(() => { // Adicionado useCallback
-      fetchVendas();
-      return () => {
-        // Opcional: Limpeza se a tela perder o foco e você precisar cancelar algo
-      };
-    }, []) // Array de dependências vazio para rodar apenas uma vez quando focado (ou quando desejar)
-  );
+  const handleRefresh = () => {
+    console.log("handleRefresh Vendas: Puxou para atualizar.");
+    currentPageRef.current = 0;
+    hasMoreRef.current = true;
+    fetchVendas(0, true);
+  };
+  
+  // const handleSearchSubmit = () => { ... }; // Se implementar pesquisa
 
   const formatarData = (dataISO: string) => {
     if (!dataISO) return 'Data indisponível';
     try {
         return new Date(dataISO).toLocaleDateString('pt-BR', {
             day: '2-digit', month: '2-digit', year: 'numeric',
-            // hour: '2-digit', minute: '2-digit' // Descomente se quiser hora
+            hour: '2-digit', minute: '2-digit'
         });
-    } catch (e) {
-        console.warn("Erro ao formatar data:", dataISO, e)
-        return dataISO;
-    }
+    } catch (e) { return dataISO; }
   };
 
-  if (isLoading && vendas.length === 0) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#323588" />
-        <Text>Carregando vendas...</Text>
-      </View>
-    );
-  }
-
-  if (error && vendas.length === 0) {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.errorText}>Erro ao carregar: {error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={fetchVendas}>
-          <Text style={styles.retryButtonText}>Tentar Novamente</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-   if (!isLoading && vendas.length === 0) {
-    return (
-      <View style={styles.centered}>
-        <Text>Nenhuma venda registrada.</Text>
-         <TouchableOpacity style={styles.retryButton} onPress={fetchVendas}>
-            <Text style={styles.retryButtonText}>Recarregar Lista</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  const renderFooter = (): React.ReactElement | null => {
+    if (isLoadingMore) {
+      return <View style={{ paddingVertical: 20 }}><ActivityIndicator size="large" color="#323588" /></View>;
+    }
+    if (!hasMoreRef.current && vendas.length > 0) {
+      return <View style={{ paddingVertical: 20 }}><Text style={listarVendasStyles.emptyDataText}>Fim do histórico de vendas.</Text></View>;
+    }
+    return null;
+  };
 
   const renderVendaItem = ({ item }: { item: Venda }) => (
-    <View style={styles.itemContainer}>
-      <View style={styles.itemHeader}>
-        <Text style={styles.saleId}>Venda ID: {item.id}</Text>
-        <Text style={styles.saleDate}>{formatarData(item.dataVenda)}</Text>
+    <View style={listarVendasStyles.itemContainer}>
+      <View style={listarVendasStyles.itemHeader}>
+        <Text style={listarVendasStyles.saleId}>Venda ID: {item.id}</Text>
+        <Text style={listarVendasStyles.saleDate}>{formatarData(item.dataVenda)}</Text>
       </View>
       {item.cliente ? (
-        <Text style={styles.customerName}>Cliente: {item.cliente.nome}</Text>
+        <Text style={listarVendasStyles.customerName}>Cliente: {item.cliente.nome}</Text>
       ) : (
-        <Text style={styles.customerName}>Cliente: Não informado</Text>
+        <Text style={listarVendasStyles.customerName}>Cliente: Não informado</Text>
       )}
-      <Text style={styles.itemsTitle}>Itens:</Text>
-      {item.itens.map(itemVenda => (
-        <Text key={itemVenda.id.toString()} style={styles.itemDetailText}>
-          - {itemVenda.quantidadeVendida}x {itemVenda.produto.nome} (R$ {itemVenda.precoUnitario.toFixed(2)} un.)
+      <Text style={listarVendasStyles.itemsTitle}>Itens ({item.itens.length}):</Text>
+      {item.itens.slice(0, 3).map(itemVenda => ( // Mostra no máximo 3 itens na prévia
+        <Text key={itemVenda.id.toString()} style={listarVendasStyles.itemDetailText}>
+          - {itemVenda.quantidadeVendida}x {itemVenda.produto.nome} (R$ {itemVenda.precoUnitario.toFixed(2)})
         </Text>
       ))}
-      <Text style={styles.totalSale}>Total: R$ {item.totalVenda.toFixed(2)}</Text>
-      {/* Botão para deletar venda (opcional) */}
-      {/*
-      <TouchableOpacity
-        style={{...styles.retryButton, backgroundColor: 'red', alignSelf: 'flex-end'}}
-        onPress={() => {
-            Alert.alert("Deletar Venda", `Deseja deletar a venda ID ${item.id}?`, [
-                {text: "Cancelar"},
-                {text: "Deletar", onPress: () => console.log("Deletar venda ID:", item.id), style: "destructive"}
-            ])
-        }}
-      >
-        <Text style={styles.retryButtonText}>Deletar</Text>
-      </TouchableOpacity>
-      */}
+      {item.itens.length > 3 && <Text style={listarVendasStyles.itemDetailText}>  ...e mais {item.itens.length - 3} item(ns)</Text>}
+      <Text style={listarVendasStyles.totalSale}>Total: R$ {item.totalVenda.toFixed(2)}</Text>
+      {/* Adicionar aqui botões para "Ver Detalhes" ou "Deletar Venda" se necessário */}
     </View>
   );
 
+  if (isLoading && vendas.length === 0 && currentPageRef.current === 0 && !error) {
+    return (
+      <View style={listarVendasStyles.container}>
+        <Text style={listarVendasStyles.headerTitle}>Histórico de Vendas</Text>
+        {/* Adicionar TextInput para pesquisa aqui no futuro */}
+        <View style={listarVendasStyles.centered}>
+          <ActivityIndicator size="large" color="#323588"/>
+          <Text style={listarVendasStyles.loadingText}>Carregando histórico...</Text>
+        </View>
+      </View>
+    );
+  }
+  
+  if (error && vendas.length === 0 && !isLoading) {
+      return (
+        <View style={listarVendasStyles.container}>
+          <Text style={listarVendasStyles.headerTitle}>Histórico de Vendas</Text>
+          {/* Adicionar TextInput para pesquisa aqui no futuro */}
+          <View style={listarVendasStyles.centered}>
+            <Text style={listarVendasStyles.errorText}>Erro ao carregar: {error}</Text>
+            <TouchableOpacity style={listarVendasStyles.retryButton} onPress={() => fetchVendas(0, true)}>
+              <Text style={listarVendasStyles.retryButtonText}>Tentar Novamente</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+  }
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.headerTitle}>Histórico de Vendas</Text>
+    <View style={listarVendasStyles.container}>
+      <Text style={listarVendasStyles.headerTitle}>Histórico de Vendas</Text>
+      {/* <TextInput
+        style={listarVendasStyles.searchInput} // Adicionar este estilo se implementar pesquisa
+        placeholder="Pesquisar vendas..."
+        value={termoPesquisaInput}
+        onChangeText={setTermoPesquisaInput}
+        onSubmitEditing={handleSearchSubmit}
+        returnKeyType="search"
+      />
+      */}
       <FlatList
         data={vendas}
         renderItem={renderVendaItem}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.listContentContainer}
-        onRefresh={fetchVendas} // Permite "puxar para atualizar"
-        refreshing={isLoading} // Controla o ícone de refresh
-        ListEmptyComponent={ // Mostra quando a lista está vazia após o carregamento inicial
+        keyExtractor={(item) => `venda-${item.id.toString()}`} // Chave prefixada
+        contentContainerStyle={listarVendasStyles.listContentContainer}
+        onRefresh={handleRefresh}
+        refreshing={isLoading && currentPageRef.current === 0 && !isLoadingMore}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5} 
+        ListFooterComponent={renderFooter}
+        ListEmptyComponent={
             !isLoading && !error && vendas.length === 0 ? (
-                <View style={styles.centered}>
-                    <Text>Nenhuma venda registrada.</Text>
-                    <TouchableOpacity style={styles.retryButton} onPress={fetchVendas}>
-                        <Text style={styles.retryButtonText}>Recarregar Lista</Text>
-                    </TouchableOpacity>
+                <View style={listarVendasStyles.centered}>
+                    <Text style={listarVendasStyles.emptyDataText}>
+                        Nenhuma venda registrada.
+                        {/* {termoPesquisaAtivo ? `para "${termoPesquisaAtivo}".` : 'registrada.'} */}
+                    </Text>
                 </View>
             ) : null
         }

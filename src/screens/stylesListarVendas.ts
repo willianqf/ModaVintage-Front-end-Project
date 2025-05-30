@@ -87,5 +87,16 @@ export const styles = StyleSheet.create({
   retryButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
+  },
+   loadingText: { // <-- ESTILO ADICIONADO/CORRIGIDO
+    fontSize: 16,
+    color: '#545454',
+    marginTop: 10,
+  },
+  emptyDataText: { // <-- ESTILO ADICIONADO/CORRIGIDO
+    fontSize: 16,
+    color: '#777777',
+    textAlign: 'center',
+    marginTop: 20,
   }
 });
