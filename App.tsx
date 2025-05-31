@@ -23,9 +23,12 @@ import ListarFornecedoresScreen from './src/screens/ListarFornecedoresScreen';
 import AdicionarFornecedorScreen from './src/screens/AdicionarFornecedorScreen';
 import EditarFornecedorScreen from './src/screens/EditarFornecedorScreen';
 import StatusScreen from './src/screens/StatusScreen';
-import SolicitarResetSenhaScreen from './src/screens/SolicitarResetSenhaScreen'; // Nova
-import ResetarSenhaScreen from './src/screens/ResetarSenhaScreen'; // Nova
+import SolicitarResetSenhaScreen from './src/screens/SolicitarResetSenhaScreen';
+import ResetarSenhaScreen from './src/screens/ResetarSenhaScreen';
 
+// Importe a interface Cliente do local onde ela está definida
+// Geralmente, é exportada da tela de listagem ou de um arquivo de tipos dedicado.
+import { Cliente } from './src/screens/ListarClientesScreen'; // Ajuste este caminho se necessário
 
 export type RootStackParamList = {
   Login: undefined;
@@ -36,19 +39,20 @@ export type RootStackParamList = {
   EditarMercadoria: { produtoId: number };
   Clientes: undefined;
   ListarClientes: undefined;
-  AdicionarCliente: undefined;
+  // MODIFICADO: AdicionarCliente pode receber 'originRoute' como parâmetro opcional
+  AdicionarCliente: { originRoute?: string }; 
   EditarCliente: { clienteId: number };
-  VendasScreen: undefined;
-  RegistrarVenda: undefined;
+  VendasScreen: undefined; // Nome da rota como no seu Stack.Screen
+  // MODIFICADO: RegistrarVenda pode receber 'newlyAddedClient' como parâmetro opcional
+  RegistrarVenda: { newlyAddedClient?: Cliente }; 
   ListarVendas: undefined;
-  FornecedoresScreen: undefined;
+  FornecedoresScreen: undefined; // Nome da rota como no seu Stack.Screen
   ListarFornecedores: undefined;
   AdicionarFornecedor: undefined;
   EditarFornecedor: { fornecedorId: number };
-  StatusScreen: undefined;
-  SolicitarResetSenha: undefined; // Nova
-  ResetarSenha: { email?: string, token?: string }; // Nova, recebe email e token como params 
-  // ConfiguracoesScreen: undefined;
+  StatusScreen: undefined; // Nome da rota como no seu Stack.Screen
+  SolicitarResetSenha: undefined;
+  ResetarSenha: { email?: string, token?: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -114,7 +118,8 @@ export default function App() {
             <Stack.Screen name="ListarClientes" component={ListarClientesScreen} />
             <Stack.Screen name="AdicionarCliente" component={AdicionarClienteScreen} />
             <Stack.Screen name="EditarCliente" component={EditarClienteScreen} />
-            <Stack.Screen name="VendasScreen" component={VendasScreen} />
+            {/* Mantive os nomes das rotas como estavam no seu código original para consistência */}
+            <Stack.Screen name="VendasScreen" component={VendasScreen} /> 
             <Stack.Screen name="RegistrarVenda" component={RegistrarVendaScreen} />
             <Stack.Screen name="ListarVendas" component={ListarVendasScreen} />
             <Stack.Screen name="FornecedoresScreen" component={FornecedoresScreen} />
@@ -134,6 +139,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f3f3f3',
+    backgroundColor: '#f3f3f3', // Cor de fundo consistente
   }
 });

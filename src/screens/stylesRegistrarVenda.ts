@@ -211,5 +211,15 @@ export const styles = StyleSheet.create({
     color: '#545454',
     marginBottom: 8, // Reduzido
     textAlign: 'center',
+  },
+  cadastrarNovoButton: {
+  backgroundColor: '#4CAF50', // Verde, ou a cor que preferir
+  marginTop: 8, // Espaçamento do botão de selecionar cliente
+  // marginBottom: 15, // Se quiser mais espaço abaixo  
+  },
+  emptyModalText:{
+    textAlign:'center',
+    color: '#666',
+    marginTop: 20
   }
 });

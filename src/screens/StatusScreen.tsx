@@ -46,21 +46,19 @@ const formatMesAnoParaLabel = (mesAno: string): string => {
     return `${mesesAbreviados[mes] || mes}/${ano.substring(2)}`;
 };
 
-// Função para formatar números grandes para os labels do eixo Y
 const formatYLabelValue = (value: string): string => {
     const num = parseFloat(value);
     if (isNaN(num)) return value;
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`; // Mostrar 1 casa decimal para K
-    return num.toFixed(num % 1 === 0 ? 0 : 2); // Mostrar 0 ou 2 casas decimais para < 1000
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toFixed(num % 1 === 0 ? 0 : 2);
 };
 
-// chartConfig que inclui formatYLabel e segments
 const chartConfigWithYFormat = {
     ...originalChartConfig,
     formatYLabel: formatYLabelValue,
-    decimalPlaces: 2, // A biblioteca pode usar isso para tooltips ou valores nas barras se ativados
-    segments: 5, // Sugere 5 segmentos (linhas horizontais) no eixo Y. Ajuste conforme necessário.
+    decimalPlaces: 2, // Usado pela lib para arredondar valores no topo da barra se showValuesOnTopOfBars=true
+    segments: 5, 
 };
 
 
@@ -99,7 +97,6 @@ export default function StatusScreen() {
 
         if (fetchedVendasData.length > 0) {
             const labels = fetchedVendasData.map(item => formatMesAnoParaLabel(item.mesAno));
-            // Arredondar os dados para o gráfico de Vendas Mensais
             const data = fetchedVendasData.map(item => parseFloat((item.totalVendido || 0).toFixed(2)));
             const dataForVendasChart = {
               labels,
@@ -150,12 +147,12 @@ export default function StatusScreen() {
 
         const saidaValues = sortedPeriods.map(periodo => {
           const vendaItem = fetchedVendasData.find(item => item.mesAno === periodo);
-          return parseFloat((vendaItem?.totalVendido || 0).toFixed(2)); // Arredondado
+          return parseFloat((vendaItem?.totalVendido || 0).toFixed(2));
         });
 
         const entradaValues = sortedPeriods.map(periodo => {
           const entradaItem = fetchedEntradasData.find(item => item.mesAno === periodo);
-          return parseFloat((entradaItem?.valor || 0).toFixed(2)); // Arredondado
+          return parseFloat((entradaItem?.valor || 0).toFixed(2));
         });
         
         const dataForEntradaSaidaChart = {
@@ -201,7 +198,6 @@ export default function StatusScreen() {
 
       if (response.data && response.data.length > 0) {
         const labels = response.data.map(item => formatMesAnoParaLabel(item.periodo));
-        // Arredondar dados para os datasets
         const receitas = response.data.map(item => parseFloat(item.totalReceita.toFixed(2)));
         const cmvs = response.data.map(item => parseFloat(item.totalCmv.toFixed(2)));
         const lucros = response.data.map(item => parseFloat(item.totalLucroBruto.toFixed(2)));
@@ -257,35 +253,31 @@ export default function StatusScreen() {
     if (specificError) {
         return <View style={styles.centeredMessage}><Text style={styles.errorText}>{specificError}</Text></View>;
     }
-    if (!chartDataInput || chartDataInput.labels.length === 0 || chartDataInput.datasets.length === 0 || 
-        chartDataInput.datasets.every(ds => ds.data.length === 0 || ds.data.every(val => val === 0))) {
+    // Condição de dados vazios ligeiramente ajustada para ser mais robusta
+    if (!chartDataInput || !chartDataInput.labels || chartDataInput.labels.length === 0 || 
+        !chartDataInput.datasets || chartDataInput.datasets.length === 0 || 
+        chartDataInput.datasets.every(ds => !ds.data || ds.data.length === 0 || ds.data.every(val => val === 0))) {
       return <View style={styles.centeredMessage}><Text style={styles.emptyDataText}>Sem dados para exibir para {title}.</Text></View>;
     }
     
-    const finalChartData = {
-        labels: chartDataInput.labels,
-        datasets: chartDataInput.datasets.map(ds => ({
-            ...ds, 
-            data: ds.data,
-        })),
-        legend: chartDataInput.legend 
-    };
+    // Não há necessidade de remapear 'finalChartData' se 'chartDataInput' já está no formato correto
+    // A prop 'legend' no objeto de dados do BarChart é para a legenda geral abaixo do gráfico, se a lib suportar.
+    // As legendas por dataset são definidas dentro de cada objeto no array 'datasets'.
 
     return (
       <View style={styles.chartContainer}>
         <Text style={styles.chartTitle}>{title}</Text>
         <BarChart
-          data={finalChartData}
+          // Passando chartDataInput diretamente, pois os logs confirmam que sua estrutura está correta
+          data={chartDataInput} 
           width={screenWidth * 0.92}
           height={250}
           yAxisLabel="R$ "
           yAxisSuffix=""
-          chartConfig={chartConfigWithYFormat} // Usando a config com formatYLabel e segments
+          chartConfig={chartConfigWithYFormat}
           verticalLabelRotation={30}
           fromZero={true}
-          // Definindo showValuesOnTopOfBars como false para todos para uma aparência mais limpa.
-          // Se quiser valores no topo, considere arredondar os dados antes.
-          showValuesOnTopOfBars={false} 
+          showValuesOnTopOfBars={false} // Mantido como false para todos para consistência
         />
       </View>
     );

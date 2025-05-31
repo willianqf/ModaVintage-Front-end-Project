@@ -5,12 +5,12 @@ import {
 } from 'react-native';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App'; // Ajuste o caminho se necessário
 import { styles } from './stylesRegistrarVenda';
-import { Cliente } from './ListarClientesScreen'; // Certifique-se que este caminho está correto
-import { Produto } from './ListarMercadoriasScreen'; // Certifique-se que este caminho está correto
+import { Cliente } from './ListarClientesScreen'; 
+import { Produto } from './ListarMercadoriasScreen'; 
 
 const API_BASE_URL = 'http://192.168.1.5:8080';
 
@@ -21,16 +21,18 @@ interface ItemVendaInput {
 }
 
 type RegistrarVendaNavigationProp = NativeStackNavigationProp<RootStackParamList, 'RegistrarVenda'>;
+type RegistrarVendaScreenRouteProp = RouteProp<RootStackParamList, 'RegistrarVenda'>;
 
 export default function RegistrarVendaScreen() {
   const navigation = useNavigation<RegistrarVendaNavigationProp>();
+  const route = useRoute<RegistrarVendaScreenRouteProp>();
 
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
   const [itensVenda, setItensVenda] = useState<ItemVendaInput[]>([]);
-  const [dataVenda, setDataVenda] = useState(new Date());
+  const [dataVenda, setDataVenda] = useState(new Date()); // Data atual por padrão
   const [totalVenda, setTotalVenda] = useState(0);
-  const [isLoading, setIsLoading] = useState(false); // Para o botão "Registrar Venda"
-  const [isFetchingModalData, setIsFetchingModalData] = useState(false); // Novo estado para loading dos modais
+  const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingModalData, setIsFetchingModalData] = useState(false);
 
   const [clienteModalVisible, setClienteModalVisible] = useState(false);
   const [produtoModalVisible, setProdutoModalVisible] = useState(false);
@@ -51,56 +53,74 @@ export default function RegistrarVendaScreen() {
   const [editQuantityModalVisible, setEditQuantityModalVisible] = useState(false);
 
   const fetchDataForModals = async () => {
-    setIsFetchingModalData(true); // Inicia loading dos dados do modal
+    setIsFetchingModalData(true);
     try {
       const token = await SecureStore.getItemAsync('userToken');
       if (!token) {
         Alert.alert("Autenticação", "Token não encontrado. Faça login novamente.");
         setIsFetchingModalData(false);
-        return; // Interrompe se não houver token
+        return;
       }
-
-      console.log("Buscando todos os clientes para modal via /clientes/todos...");
-      console.log("Buscando todos os produtos para modal via /produtos/todos...");
 
       const [clientesRes, produtosRes] = await Promise.all([
         axios.get<Cliente[]>(`${API_BASE_URL}/clientes/todos`, { headers: { Authorization: `Bearer ${token}` } }),
         axios.get<Produto[]>(`${API_BASE_URL}/produtos/todos`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
 
-      const clientesData = clientesRes.data || []; // API agora retorna array diretamente
-      console.log("Clientes recebidos para modal:", clientesData.length);
-      setListaClientesMaster(clientesData);
-      setListaClientesFiltrada(clientesData);
+      const clientesData = clientesRes.data || [];
+      // Ordenar clientes alfabeticamente
+      const clientesOrdenados = clientesData.sort((a, b) => a.nome.localeCompare(b.nome));
+      setListaClientesMaster(clientesOrdenados);
+      setListaClientesFiltrada(clientesOrdenados); // Inicializa filtrada com todos ordenados
 
-      const produtosData = produtosRes.data || []; // API agora retorna array diretamente
-      console.log("Produtos recebidos para modal:", produtosData.length);
-      const produtosComEstoque = produtosData.filter((p: Produto) => p.estoque > 0);
+      const produtosData = produtosRes.data || [];
+      const produtosComEstoque = produtosData.filter((p: Produto) => p.estoque > 0)
+                                         .sort((a,b) => a.nome.localeCompare(b.nome)); // Ordenar produtos
       setListaProdutosMaster(produtosComEstoque);
-      setListaProdutosFiltrada(produtosComEstoque);
+      setListaProdutosFiltrada(produtosComEstoque); // Inicializa filtrada com todos ordenados
 
     } catch (error: any) {
       console.error("Erro ao buscar dados para modais:", JSON.stringify(error.response?.data || error.message));
-      Alert.alert("Erro", "Não foi possível carregar dados de clientes ou produtos para seleção.");
+      Alert.alert("Erro de Carregamento", "Não foi possível carregar dados de clientes ou produtos.");
     } finally {
-      setIsFetchingModalData(false); // Finaliza loading dos dados do modal
+      setIsFetchingModalData(false);
     }
   };
+
+  // Efeito para processar cliente recém-adicionado
+  useEffect(() => {
+    if (route.params?.newlyAddedClient) {
+      const novoCliente = route.params.newlyAddedClient;
+      setSelectedCliente(novoCliente);
+      // Adiciona o novo cliente à lista local (master e filtrada) para que apareça no modal sem novo fetch
+      setListaClientesMaster(prev => {
+          const existe = prev.find(c => c.id === novoCliente.id);
+          const updatedList = existe ? prev.map(c => c.id === novoCliente.id ? novoCliente : c) : [novoCliente, ...prev];
+          return updatedList.sort((a,b) => a.nome.localeCompare(b.nome));
+      });
+      // Limpa o parâmetro da rota para evitar reprocessamento
+      navigation.setParams({ newlyAddedClient: undefined });
+    }
+  }, [route.params?.newlyAddedClient, navigation]);
 
   useFocusEffect(
     useCallback(() => {
       fetchDataForModals();
-      // Resetar o formulário de venda ao focar na tela
-      setSelectedCliente(null);
-      setItensVenda([]);
-      setDataVenda(new Date());
+      // Resetar o formulário apenas se não estivermos voltando de uma adição de cliente bem-sucedida
+      if (!route.params?.newlyAddedClient) {
+        setSelectedCliente(null);
+        setItensVenda([]);
+        setTotalVenda(0); // Reseta total da venda
+        setDataVenda(new Date()); // Reseta data da venda
+      }
+      // Sempre resetar termos de pesquisa e seleção de produto para adicionar
       setSearchTermCliente('');
       setSearchTermProduto('');
       setProdutoParaAdicionar(null);
       setQuantidadeProdutoInput('1');
-      console.log("RegistrarVendaScreen focado, formulário resetado e dados dos modais buscados.");
+      console.log("RegistrarVendaScreen focado.");
       return () => {};
-    }, [])
+    }, [route.params?.newlyAddedClient]) // Dependência para reavaliar o reset
   );
 
   useEffect(() => {
@@ -136,33 +156,38 @@ export default function RegistrarVendaScreen() {
 
   const handleSelecionarProdutoParaAdicionar = (produto: Produto) => {
     setProdutoParaAdicionar(produto);
-    setQuantidadeProdutoInput('1');
+    setQuantidadeProdutoInput('1'); // Reseta quantidade ao selecionar novo produto
   };
 
   const handleConfirmarAdicaoItem = () => {
     if (!produtoParaAdicionar) return;
     const quantidade = parseInt(quantidadeProdutoInput, 10);
+
     if (isNaN(quantidade) || quantidade <= 0) {
-      Alert.alert("Quantidade Inválida", "Insira uma quantidade válida."); return;
+      Alert.alert("Quantidade Inválida", "Insira uma quantidade válida (maior que zero)."); return;
     }
     if (quantidade > produtoParaAdicionar.estoque) {
       Alert.alert("Estoque Insuficiente", `Disponível para "${produtoParaAdicionar.nome}": ${produtoParaAdicionar.estoque}.`); return;
     }
+
     const itemExistenteIndex = itensVenda.findIndex(item => item.produto.id === produtoParaAdicionar.id);
     let novosItens = [...itensVenda];
+
     if (itemExistenteIndex > -1) {
       const qtdTotalNova = novosItens[itemExistenteIndex].quantidadeVendida + quantidade;
       if (qtdTotalNova > produtoParaAdicionar.estoque) {
-        Alert.alert("Estoque Insuficiente", `Você já tem ${novosItens[itemExistenteIndex].quantidadeVendida} no carrinho. Estoque total para "${produtoParaAdicionar.nome}": ${produtoParaAdicionar.estoque}.`); return;
+        Alert.alert("Estoque Insuficiente", `Você já tem ${novosItens[itemExistenteIndex].quantidadeVendida} no carrinho. Estoque total para "${produtoParaAdicionar.nome}": ${produtoParaAdicionar.estoque}. Não é possível adicionar ${quantidade} unidade(s).`); return;
       }
       novosItens[itemExistenteIndex].quantidadeVendida = qtdTotalNova;
     } else {
       novosItens.push({ produto: produtoParaAdicionar, quantidadeVendida: quantidade, precoUnitario: produtoParaAdicionar.preco });
     }
     setItensVenda(novosItens);
-    setProdutoParaAdicionar(null);
+    setProdutoParaAdicionar(null); // Reseta seleção de produto para permitir nova escolha
     setQuantidadeProdutoInput('1');
-    setSearchTermProduto('');
+    // Não fecha o modal de produto automaticamente, permite adicionar mais ou fechar manualmente
+    // setProdutoModalVisible(false); 
+    setSearchTermProduto(''); // Limpa pesquisa de produto
     Keyboard.dismiss();
   };
 
@@ -211,34 +236,26 @@ export default function RegistrarVendaScreen() {
         cliente: selectedCliente ? { id: selectedCliente.id } : null,
         itens: itensVenda.map(item => ({
           produto: { id: item.produto.id },
-          // CORREÇÃO AQUI: mudar de 'quantidadeVendida' para 'quantidade'
-          quantidade: item.quantidadeVendida, 
-        // precoUnitario será definido pelo backend baseado no produto.preco, 
-        // então não precisamos enviá-lo explicitamente aqui se essa for a lógica.
-        // Se você PRECISAR enviar o precoUnitario do frontend (ex: promoções), 
-        // o backend ItemVenda precisaria de um campo para isso e VendaService usaria ele.
-        // Por ora, vamos focar na quantidade.
+          quantidade: item.quantidadeVendida, // Já corrigido anteriormente
         })),
-        // dataVenda e totalVenda são geralmente definidos pelo backend.
       };
 
-      console.log("Enviando payload da venda:", JSON.stringify(payload, null, 2)); // Para depuração
+      console.log("Enviando payload da venda:", JSON.stringify(payload, null, 2));
 
       await axios.post(`${API_BASE_URL}/vendas`, payload, { headers: { Authorization: `Bearer ${token}` } });
       Alert.alert("Sucesso", "Venda registrada com sucesso!");
       navigation.goBack(); 
     } catch (error: any) {
-      // ... (seu tratamento de erro existente) ...
       console.error("Erro ao registrar venda:", JSON.stringify(error.response?.data || error.message));
       let errorMessage = "Não foi possível registrar a venda.";
        if (axios.isAxiosError(error) && error.response) {
             if (error.response.data?.message) errorMessage = error.response.data.message;
-            else if (typeof error.response.data === 'string') errorMessage = error.response.data;
+            else if (typeof error.response.data === 'string' && error.response.data.length < 200) errorMessage = error.response.data; // Evitar HTML longo
             else if (error.response.status === 401 || error.response.status === 403) errorMessage = "Erro de autenticação.";
            } else if (error.message) {
                errorMessage = error.message;
            }
-      Alert.alert("Erro", errorMessage);
+      Alert.alert("Erro ao Registrar", errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -291,12 +308,20 @@ export default function RegistrarVendaScreen() {
       <TouchableOpacity 
         style={styles.pickerButton} 
         onPress={() => { 
-            setSearchTermCliente(''); // Limpa a pesquisa ao abrir o modal
-            setListaClientesFiltrada(listaClientesMaster); // Mostra todos os clientes inicialmente
+            setSearchTermCliente(''); 
+            setListaClientesFiltrada(listaClientesMaster); 
             setClienteModalVisible(true); 
         }}
       >
         <Text style={styles.pickerButtonText}>{selectedCliente ? selectedCliente.nome : "Selecionar Cliente"}</Text>
+      </TouchableOpacity>
+
+      {/* NOVO BOTÃO PARA CADASTRAR CLIENTE */}
+      <TouchableOpacity
+        style={[styles.pickerButton, styles.cadastrarNovoButton]} // Você precisará criar este estilo
+        onPress={() => navigation.navigate('AdicionarCliente', { originRoute: 'RegistrarVenda' })}
+      >
+        <Text style={styles.pickerButtonText}>+ Cadastrar Novo Cliente</Text>
       </TouchableOpacity>
 
       <Text style={styles.sectionTitle}>Data da Venda</Text>
@@ -308,8 +333,8 @@ export default function RegistrarVendaScreen() {
         onPress={() => { 
             setProdutoParaAdicionar(null); 
             setQuantidadeProdutoInput("1"); 
-            setSearchTermProduto(''); // Limpa a pesquisa ao abrir o modal
-            setListaProdutosFiltrada(listaProdutosMaster.filter(p => p.estoque > 0)); // Mostra todos com estoque
+            setSearchTermProduto(''); 
+            setListaProdutosFiltrada(listaProdutosMaster.filter(p => p.estoque > 0)); 
             setProdutoModalVisible(true); 
         }}
       >
@@ -321,10 +346,10 @@ export default function RegistrarVendaScreen() {
       {itensVenda.length > 0 && (
         <FlatList
           data={itensVenda}
-          scrollEnabled={false}
-          keyExtractor={(item, index) => `${item.produto.id}_${index}_${item.quantidadeVendida}`}
+          scrollEnabled={false} // Para evitar scroll dentro de scroll
+          keyExtractor={(item, index) => `${item.produto.id}_${index}`} // Chave mais estável
           renderItem={renderItemVendaNaTela}
-          style={{ maxHeight: 250, marginTop: 10, width: '100%' }}
+          style={{ maxHeight: 300, marginTop: 10, width: '100%' }} // Aumentei um pouco o maxHeight
         />
       )}
 
@@ -342,7 +367,10 @@ export default function RegistrarVendaScreen() {
         <View style={styles.centeredView}><View style={styles.modalView}>
             <Text style={styles.modalTitle}>Selecione um Cliente</Text>
             <TextInput style={styles.modalSearchInput} placeholder="Pesquisar cliente..." value={searchTermCliente} onChangeText={setSearchTermCliente}/>
-            <FlatList data={listaClientesFiltrada} renderItem={renderClienteItemModal} keyExtractor={(item) => item.id.toString()} style={{width: '100%', maxHeight: '60%'}} ListEmptyComponent={<Text>Nenhum cliente encontrado.</Text>} />
+            {isFetchingModalData && listaClientesFiltrada.length === 0 ? 
+                <ActivityIndicator style={{marginVertical: 20}} size="small" /> :
+                <FlatList data={listaClientesFiltrada} renderItem={renderClienteItemModal} keyExtractor={(item) => item.id.toString()} style={{width: '100%', maxHeight: '60%'}} ListEmptyComponent={<Text style={styles.emptyModalText}>Nenhum cliente encontrado.</Text>} />
+            }
             <View style={styles.modalButtonContainer}><RNButton title="Fechar" onPress={() => {setClienteModalVisible(false); setSearchTermCliente('');}} color="#8B0000" /></View>
         </View></View>
       </Modal>
@@ -354,7 +382,10 @@ export default function RegistrarVendaScreen() {
               <>
                 <Text style={styles.modalTitle}>Selecione um Produto</Text>
                 <TextInput style={styles.modalSearchInput} placeholder="Pesquisar produto..." value={searchTermProduto} onChangeText={setSearchTermProduto} />
-                <FlatList data={listaProdutosFiltrada} renderItem={renderProdutoItemModal} keyExtractor={(item) => item.id.toString()} style={{width: '100%', maxHeight: '50%'}} ListEmptyComponent={<Text>Nenhum produto encontrado ou com estoque.</Text>} />
+                {isFetchingModalData && listaProdutosFiltrada.length === 0 ?
+                    <ActivityIndicator style={{marginVertical: 20}} size="small" /> :
+                    <FlatList data={listaProdutosFiltrada} renderItem={renderProdutoItemModal} keyExtractor={(item) => item.id.toString()} style={{width: '100%', maxHeight: '50%'}} ListEmptyComponent={<Text style={styles.emptyModalText}>Nenhum produto encontrado ou com estoque.</Text>} />
+                }
               </>
             ) : ( 
               <>
@@ -363,7 +394,7 @@ export default function RegistrarVendaScreen() {
                 <Text style={styles.infoText}>(Estoque Disponível: {produtoParaAdicionar.estoque})</Text>
                 <View style={styles.quantityInputContainer}>
                     <Text style={{fontSize: 16, marginRight: 5}}>Quantidade:</Text>
-                    <TextInput style={styles.quantityInput} value={quantidadeProdutoInput} onChangeText={setQuantidadeProdutoInput} keyboardType="number-pad" maxLength={3} autoFocus={true} />
+                    <TextInput style={styles.quantityInput} value={quantidadeProdutoInput} onChangeText={setQuantidadeProdutoInput} keyboardType="number-pad" maxLength={3} autoFocus={true} returnKeyType="done" onSubmitEditing={handleConfirmarAdicaoItem} />
                 </View>
                 <TouchableOpacity style={styles.confirmAddItemButton} onPress={handleConfirmarAdicaoItem}>
                     <Text style={styles.confirmAddItemButtonText}>Adicionar Item à Venda</Text>
@@ -372,7 +403,7 @@ export default function RegistrarVendaScreen() {
             )}
             <View style={styles.modalButtonContainer}>
                 <RNButton title={produtoParaAdicionar ? "Voltar para Lista de Produtos" : "Fechar"} onPress={() => {
-                    if (produtoParaAdicionar) { setProdutoParaAdicionar(null); /* Não limpa searchTermProduto aqui para manter o filtro */ }
+                    if (produtoParaAdicionar) { setProdutoParaAdicionar(null); }
                     else { setProdutoModalVisible(false); setSearchTermProduto('');}
                 }} color="#8B0000"/>
             </View>
@@ -401,6 +432,8 @@ export default function RegistrarVendaScreen() {
                     keyboardType="number-pad"
                     maxLength={3}
                     autoFocus={true}
+                    returnKeyType="done"
+                    onSubmitEditing={handleConfirmarNovaQuantidade}
                   />
                 </View>
                 <TouchableOpacity style={styles.confirmAddItemButton} onPress={handleConfirmarNovaQuantidade}>
