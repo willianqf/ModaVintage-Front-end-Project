@@ -198,7 +198,7 @@ export default function RegistrarVendaScreen() {
     Keyboard.dismiss();
   };
 
-  const handleRegistrarVenda = async () => {
+ const handleRegistrarVenda = async () => {
     if (itensVenda.length === 0) {
       Alert.alert("Venda Vazia", "Adicione pelo menos um produto à venda."); return;
     }
@@ -206,26 +206,38 @@ export default function RegistrarVendaScreen() {
     try {
       const token = await SecureStore.getItemAsync('userToken');
       if (!token) throw new Error("Token não encontrado.");
+
       const payload = {
         cliente: selectedCliente ? { id: selectedCliente.id } : null,
         itens: itensVenda.map(item => ({
           produto: { id: item.produto.id },
-          quantidadeVendida: item.quantidadeVendida,
+          // CORREÇÃO AQUI: mudar de 'quantidadeVendida' para 'quantidade'
+          quantidade: item.quantidadeVendida, 
+        // precoUnitario será definido pelo backend baseado no produto.preco, 
+        // então não precisamos enviá-lo explicitamente aqui se essa for a lógica.
+        // Se você PRECISAR enviar o precoUnitario do frontend (ex: promoções), 
+        // o backend ItemVenda precisaria de um campo para isso e VendaService usaria ele.
+        // Por ora, vamos focar na quantidade.
         })),
+        // dataVenda e totalVenda são geralmente definidos pelo backend.
       };
+
+      console.log("Enviando payload da venda:", JSON.stringify(payload, null, 2)); // Para depuração
+
       await axios.post(`${API_BASE_URL}/vendas`, payload, { headers: { Authorization: `Bearer ${token}` } });
       Alert.alert("Sucesso", "Venda registrada com sucesso!");
-      navigation.goBack(); // Volta para VendasScreen, que ao focar pode recarregar listas de vendas
+      navigation.goBack(); 
     } catch (error: any) {
+      // ... (seu tratamento de erro existente) ...
       console.error("Erro ao registrar venda:", JSON.stringify(error.response?.data || error.message));
       let errorMessage = "Não foi possível registrar a venda.";
        if (axios.isAxiosError(error) && error.response) {
             if (error.response.data?.message) errorMessage = error.response.data.message;
             else if (typeof error.response.data === 'string') errorMessage = error.response.data;
             else if (error.response.status === 401 || error.response.status === 403) errorMessage = "Erro de autenticação.";
-         } else if (error.message) {
-            errorMessage = error.message;
-         }
+           } else if (error.message) {
+               errorMessage = error.message;
+           }
       Alert.alert("Erro", errorMessage);
     } finally {
       setIsLoading(false);

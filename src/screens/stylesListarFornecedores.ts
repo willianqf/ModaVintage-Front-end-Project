@@ -6,6 +6,12 @@ export const styles = StyleSheet.create({
     paddingTop: 40,
     backgroundColor: '#F3F3F3',
   },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -14,7 +20,7 @@ export const styles = StyleSheet.create({
     marginBottom: 15,
     paddingHorizontal: 15,
   },
-  searchInput: { // Novo estilo
+  searchInput: {
     height: 45,
     borderColor: '#D0D0D0',
     borderWidth: 1,
@@ -29,12 +35,6 @@ export const styles = StyleSheet.create({
      paddingHorizontal: 15,
      paddingBottom: 20,
   },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
   itemContainer: {
     backgroundColor: '#FFFFFF',
     padding: 15,
@@ -48,51 +48,59 @@ export const styles = StyleSheet.create({
   },
   itemTextContainer: {
     flex: 1,
+    marginRight: 10,
   },
   itemName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#545454',
-    marginBottom: 3,
+    color: '#545454', 
+    marginBottom: 5,
   },
   itemDetails: {
     fontSize: 14,
-    color: '#777777',
-  },
-  buttonsContainer: {
-    flexDirection: 'row',
-  },
-  actionButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 5,
-    marginLeft: 10,
-  },
-  editButton: {
-    backgroundColor: '#5DBEDD',
+    color: '#545454', 
+    marginBottom: 3,
   },
   deleteButton: {
-    backgroundColor: '#FF0000',
-  },
-  actionButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-  },
-  errorText: {
-    fontSize: 16,
-    color: 'red',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  retryButton: {
-    backgroundColor: '#5DBEDD',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    backgroundColor: '#FF6347', // Cor tomate para deletar
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     borderRadius: 5,
-    marginTop: 10,
   },
-  retryButtonText: {
+  // ADICIONAR ESTES ESTILOS ABAIXO:
+  deleteButtonText: { 
     color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  errorText: { // Você já tem este, mas certifique-se que está correto
+     fontSize: 16,
+     color: 'red',
+     textAlign: 'center',
+     marginBottom: 10,
+  },
+  retryButton: { // Você já tem este
+     backgroundColor: '#5DBEDD',
+     paddingVertical: 10,
+     paddingHorizontal: 20,
+     borderRadius: 5,
+     marginTop:10,
+  },
+  retryButtonText: { // Você já tem este
+     color: '#FFFFFF',
+     fontSize: 16,
+  },
+  loadingText: { // ADICIONAR ESTE
     fontSize: 16,
+    color: '#545454', // Pode ajustar a cor se desejar
+    marginTop: 10,
+    textAlign: 'center', // Adicionado para centralizar com o ActivityIndicator
+  },
+  emptyDataText: { // ADICIONAR ESTE
+    fontSize: 16,
+    color: '#777777',
+    textAlign: 'center',
+    marginTop: 20,
   }
+  // Certifique-se de que a vírgula final está correta se adicionar mais estilos depois
 });

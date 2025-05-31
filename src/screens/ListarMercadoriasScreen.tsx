@@ -1,16 +1,18 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, FlatList, ActivityIndicator, Alert, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, Alert, TouchableOpacity, TextInput } from 'react-native'; // Removido StyleSheet pois os estilos vêm de arquivo externo
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import { styles as listarMercadoriasStyles } from './stylesListarMercadorias';
+// A importação de estilos está correta aqui, usando um alias.
+import { styles as listarMercadoriasStyles } from './stylesListarMercadorias'; // [origem: willianqf/modavintage_frontand_backand/modavintage_frontand_backand-master/Modavintage_Frontand/src/screens/stylesListarMercadorias.ts]
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../App';
+import { RootStackParamList } from '../../App'; // Ajuste o caminho se necessário
 
 export interface Produto {
   id: number;
   nome: string;
-  preco: number;
+  precoCusto?: number; // NOVO CAMPO: Preço de custo (opcional para compatibilidade inicial)
+  preco: number;       // Este campo é o Preço de Venda
   estoque: number;
   tamanho?: string;
   categoria?: string;
@@ -28,41 +30,35 @@ interface PaginatedResponse<T> {
   empty: boolean;
 }
 
-const API_BASE_URL = 'http://192.168.1.5:8080';
+const API_BASE_URL = 'http://192.168.1.5:8080'; // Confirme seu IP
 const PAGE_SIZE = 10;
 
 type ListarMercadoriasNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ListarMercadorias'>;
 
 export default function ListarMercadoriasScreen() {
   const navigation = useNavigation<ListarMercadoriasNavigationProp>();
-  
+
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [isLoading, setIsLoading] = useState(false); 
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
+
   const currentPageRef = useRef(0);
   const hasMoreRef = useRef(true);
   const isFetchingRef = useRef(false);
 
   const [termoPesquisaInput, setTermoPesquisaInput] = useState(''); 
-  // CERTIFIQUE-SE QUE ESTA LINHA EXISTE E ESTÁ CORRETA:
   const [termoPesquisaAtivo, setTermoPesquisaAtivo] = useState(''); 
 
   const fetchProdutos = useCallback(async (pageToFetch: number, searchTerm: string, isNewSearchOrRefresh: boolean) => {
-    if (isFetchingRef.current && !isNewSearchOrRefresh) {
-      console.log(`fetchProdutos: SKIP - Já buscando. Page: ${pageToFetch}, Termo: ${searchTerm}`);
-      return;
-    }
+    if (isFetchingRef.current && !isNewSearchOrRefresh) return;
     if (!isNewSearchOrRefresh && !hasMoreRef.current) {
-      console.log(`fetchProdutos: SKIP - Não há mais páginas. Page: ${pageToFetch}`);
       setIsLoadingMore(false);
       return;
     }
 
     isFetchingRef.current = true;
-    console.log(`FETCHING: page ${pageToFetch}, term: "${searchTerm}", newSearch/Refresh: ${isNewSearchOrRefresh}`);
     if (isNewSearchOrRefresh) setIsLoading(true); else setIsLoadingMore(true);
     if (isNewSearchOrRefresh) setError(null);
 
@@ -92,7 +88,6 @@ export default function ListarMercadoriasScreen() {
       if (error && (isNewSearchOrRefresh || pageToFetch === 0)) setError(null);
 
     } catch (err: any) {
-      console.error("Erro ao buscar produtos:", JSON.stringify(err.response?.data || err.message));
       let errorMessage = "Não foi possível carregar os produtos.";
        if (axios.isAxiosError(err) && err.response) {
             if (err.response.status === 401 || err.response.status === 403) errorMessage = "Sessão expirada ou token inválido.";
@@ -105,12 +100,11 @@ export default function ListarMercadoriasScreen() {
       setIsLoadingMore(false);
       isFetchingRef.current = false;
     }
-  }, []); // useCallback com array de dependências vazio, pois refs são usadas para estados mutáveis dentro dela
+  }, [error]); // Adicionado `error` como dependência para resetá-lo corretamente
 
   useEffect(() => {
     const handler = setTimeout(() => {
       if (termoPesquisaInput !== termoPesquisaAtivo) {
-        console.log("Debounce: Atualizando termoPesquisaAtivo para:", termoPesquisaInput);
         setTermoPesquisaAtivo(termoPesquisaInput);
       }
     }, 800);
@@ -118,7 +112,6 @@ export default function ListarMercadoriasScreen() {
   }, [termoPesquisaInput, termoPesquisaAtivo]);
 
   useEffect(() => {
-    console.log("useEffect[termoPesquisaAtivo]: Nova busca por termo:", termoPesquisaAtivo);
     currentPageRef.current = 0; 
     hasMoreRef.current = true;
     fetchProdutos(0, termoPesquisaAtivo, true);
@@ -126,30 +119,26 @@ export default function ListarMercadoriasScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      console.log("useFocusEffect: Tela ganhou foco. Buscando com termo:", termoPesquisaAtivo);
       currentPageRef.current = 0;
       hasMoreRef.current = true;
       fetchProdutos(0, termoPesquisaAtivo, true);
-      return () => { /* console.log("useFocusEffect: Tela perdeu foco."); */ };
+      return () => {};
     }, [termoPesquisaAtivo, fetchProdutos])
   );
-  
+
   const handleLoadMore = () => {
     if (!isFetchingRef.current && hasMoreRef.current) {
-      console.log("handleLoadMore: Carregando próxima página:", currentPageRef.current + 1);
       fetchProdutos(currentPageRef.current + 1, termoPesquisaAtivo, false);
     }
   };
 
   const handleRefresh = () => {
-    console.log("handleRefresh: Puxou para atualizar. Termo ativo:", termoPesquisaAtivo);
     currentPageRef.current = 0;
     hasMoreRef.current = true;
     fetchProdutos(0, termoPesquisaAtivo, true);
   };
-  
+
   const handleSearchSubmit = () => {
-    console.log("handleSearchSubmit: Submetendo pesquisa com termo:", termoPesquisaInput);
     if (termoPesquisaInput !== termoPesquisaAtivo) {
         setTermoPesquisaAtivo(termoPesquisaInput);
     } else {
@@ -199,7 +188,13 @@ export default function ListarMercadoriasScreen() {
     >
       <Text style={listarMercadoriasStyles.itemName}>{item.nome} {item.tamanho ? `- ${item.tamanho}` : ''}</Text>
       <Text style={listarMercadoriasStyles.itemDetails}>Categoria: {item.categoria || 'N/A'}</Text>
-      <Text style={listarMercadoriasStyles.itemDetails}>Preço: R$ {item.preco.toFixed(2)}</Text>
+      {/* Exibindo Preço de Custo se existir */}
+      {item.precoCusto !== undefined && item.precoCusto !== null && (
+        <Text style={listarMercadoriasStyles.itemDetails}>
+            Preço Custo: R$ {typeof item.precoCusto === 'number' ? item.precoCusto.toFixed(2) : 'N/A'}
+        </Text>
+      )}
+      <Text style={listarMercadoriasStyles.itemDetails}>Preço Venda: R$ {item.preco.toFixed(2)}</Text>
       <Text style={listarMercadoriasStyles.itemDetails}>Estoque: {item.estoque}</Text>
       <Text style={item.estoque > 0 ? listarMercadoriasStyles.statusDisponivel : listarMercadoriasStyles.statusVendido}>
         Status: {item.estoque > 0 ? 'Disponível' : 'Sem Estoque'}
@@ -229,7 +224,7 @@ export default function ListarMercadoriasScreen() {
       </View>
     );
   }
-  
+
   if (error && produtos.length === 0 && !isLoading) {
       return (
         <View style={listarMercadoriasStyles.container}>

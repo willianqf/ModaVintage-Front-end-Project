@@ -1,13 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState } from 'react'; // Removido useEffect não utilizado
 import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, ActivityIndicator } from 'react-native';
-import axios from 'axios';
+import axios from 'axios'; // Usando axios como nos outros arquivos
 import * as SecureStore from 'expo-secure-store';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native'; // Importado
+import { NativeStackNavigationProp } from '@react-navigation/native-stack'; // Importado
 import { RootStackParamList } from '../../App'; // Ajuste o caminho se necessário
-import { styles } from './stylesAdicionarMercadoria';
-
-
+import { styles } from './stylesAdicionarMercadoria'; // CORRIGIDO: Importação direta de styles [origem: willianqf/modavintage_frontand_backand/modavintage_frontand_backand-master/Modavintage_Frontand/src/screens/stylesAdicionarMercadoria.ts]
 
 const API_BASE_URL = 'http://192.168.1.5:8080'; // Sua API base
 
@@ -17,153 +15,159 @@ export default function AdicionarMercadoriaScreen() {
   const navigation = useNavigation<AdicionarMercadoriaNavigationProp>();
 
   const [nome, setNome] = useState('');
+  const [precoCusto, setPrecoCusto] = useState('');
   const [preco, setPreco] = useState('');
   const [estoque, setEstoque] = useState('');
   const [tamanho, setTamanho] = useState('');
   const [categoria, setCategoria] = useState('');
-  // const [fotoUri, setFotoUri] = useState<string | null>(null); // Para a funcionalidade de foto
   const [isLoading, setIsLoading] = useState(false);
 
-  // Lógica para selecionar foto (simplificada por enquanto)
-  const handleSelecionarFoto = () => {
-    Alert.alert("Funcionalidade Pendente", "A seleção de fotos será implementada futuramente.");
-
-  };
-
   const handleAdicionarMercadoria = async () => {
-    if (!nome.trim() || !preco.trim() || !estoque.trim() || !tamanho.trim() || !categoria.trim()) {
-      Alert.alert("Erro", "Todos os campos são obrigatórios.");
-      return;
+    if (!nome.trim() || !precoCusto.trim() || !preco.trim() || !estoque.trim()) {
+        Alert.alert("Erro de Validação", "Nome, Preço de Custo, Preço de Venda e Estoque são obrigatórios.");
+        return;
     }
 
+    const precoCustoNum = parseFloat(precoCusto.replace(',', '.'));
     const precoNum = parseFloat(preco.replace(',', '.'));
     const estoqueNum = parseInt(estoque, 10);
 
+    if (isNaN(precoCustoNum) || precoCustoNum <= 0) {
+        Alert.alert("Erro de Validação", "Preço de custo inválido. Deve ser um número maior que zero.");
+        return;
+    }
     if (isNaN(precoNum) || precoNum <= 0) {
-      Alert.alert("Erro", "Preço inválido.");
-      return;
+        Alert.alert("Erro de Validação", "Preço de venda inválido. Deve ser um número maior que zero.");
+        return;
     }
     if (isNaN(estoqueNum) || estoqueNum < 0) {
-      Alert.alert("Erro", "Quantidade em estoque inválida.");
-      return;
+        Alert.alert("Erro de Validação", "Estoque inválido. Deve ser um número igual ou maior que zero.");
+        return;
     }
+    if (precoCustoNum > precoNum) {
+        Alert.alert("Atenção", "O preço de custo está maior que o preço de venda. Deseja continuar?", [
+            { text: "Cancelar", style: "cancel" },
+            { text: "Continuar", onPress: () => cadastrarMercadoria(precoCustoNum, precoNum, estoqueNum) }
+        ]);
+        return;
+    }
+    cadastrarMercadoria(precoCustoNum, precoNum, estoqueNum);
+  };
 
+  const cadastrarMercadoria = async (precoCustoVal: number, precoVendaVal: number, estoqueVal: number) => {
     setIsLoading(true);
     try {
-      const token = await SecureStore.getItemAsync('userToken');
-      if (!token) {
-        Alert.alert("Erro", "Token de autenticação não encontrado. Faça login novamente.");
-        setIsLoading(false);
-        // Onavegar para a tela de login
-        // navigation.navigate('Login');
-        return;
-      }
+        const token = await SecureStore.getItemAsync('userToken');
+        if (!token) {
+          Alert.alert("Autenticação", "Token não encontrado. Faça login novamente.");
+          setIsLoading(false);
+          return;
+        }
 
-      const produtoData = {
-        nome,
-        preco: precoNum,
-        estoque: estoqueNum,
-        tamanho,
-        categoria,
-        // dataCadastro será definido pelo backend
-      };
+        const produtoData = {
+            nome: nome.trim(),
+            precoCusto: precoCustoVal,
+            preco: precoVendaVal,
+            estoque: estoqueVal,
+            tamanho: tamanho.trim() || undefined, // Enviar undefined se vazio para ser omitido pelo backend se configurado para ignorar nulos
+            categoria: categoria.trim() || undefined,
+        };
 
-      await axios.post(`${API_BASE_URL}/produtos`, produtoData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+        await axios.post(`${API_BASE_URL}/produtos`, produtoData, {
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+        });
 
-      Alert.alert("Sucesso", "Mercadoria adicionada com sucesso!");
-      // Limpar campos e navegar de volta ou para a lista de mercadorias
-      setNome('');
-      setPreco('');
-      setEstoque('');
-      setTamanho('');
-      setCategoria('');
-      navigation.goBack(); //  navigation.navigate('ListarMercadorias');
+        Alert.alert("Sucesso", "Mercadoria adicionada com sucesso!");
+        navigation.goBack();
     } catch (error: any) {
-      console.error("Erro ao adicionar mercadoria:", error);
-      let errorMessage = "Não foi possível adicionar a mercadoria.";
-       if (axios.isAxiosError(error) && error.response) {
-            if (error.response.data?.message) {
-                errorMessage = error.response.data.message;
-            } else if (typeof error.response.data === 'string' && error.response.data.length < 100) { // Evitar mensagens de erro HTML longas
-                errorMessage = error.response.data;
-            } else if (error.response.status === 401 || error.response.status === 403) {
-                errorMessage = "Erro de autenticação. Faça login novamente.";
-            }
-         } else if (error.message) {
-            errorMessage = error.message;
-         }
-      Alert.alert("Erro", errorMessage);
+        console.error("Erro ao adicionar mercadoria:", error.response?.data || error.message);
+        let errorMessage = "Não foi possível adicionar a mercadoria.";
+        if (axios.isAxiosError(error) && error.response?.data?.message) {
+            errorMessage = error.response.data.message;
+        } else if (axios.isAxiosError(error) && typeof error.response?.data === 'string') {
+            errorMessage = error.response.data;
+        }
+        Alert.alert("Erro", errorMessage);
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 50 }}>
-      <Text style={styles.headerTitle}>Adicionar Mercadoria</Text>
+      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 50 }}>
+          <Text style={styles.headerTitle}>Adicionar Nova Mercadoria</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Nome da Mercadoria"
-        value={nome}
-        onChangeText={setNome}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Valor da Mercadoria (ex: 79.90)"
-        value={preco}
-        onChangeText={setPreco}
-        keyboardType="numeric"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Quantidade em Estoque"
-        value={estoque}
-        onChangeText={setEstoque}
-        keyboardType="number-pad"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Tamanho (ex: P, M, G, 38, 40)"
-        value={tamanho}
-        onChangeText={setTamanho}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Categoria (ex: Camisetas, Calças)"
-        value={categoria}
-        onChangeText={setCategoria}
-      />
+          <TextInput
+              style={styles.input}
+              placeholder="Nome da Mercadoria"
+              value={nome}
+              onChangeText={setNome}
+              placeholderTextColor="#888"
+          />
+          <TextInput
+              style={styles.input}
+              placeholder="Preço de Custo (ex: 39,90)"
+              value={precoCusto}
+              onChangeText={setPrecoCusto}
+              keyboardType="numeric"
+              placeholderTextColor="#888"
+          />
+          <TextInput
+              style={styles.input}
+              placeholder="Preço de Venda (ex: 79,90)"
+              value={preco}
+              onChangeText={setPreco}
+              keyboardType="numeric"
+              placeholderTextColor="#888"
+          />
+          <TextInput
+              style={styles.input}
+              placeholder="Quantidade em Estoque"
+              value={estoque}
+              onChangeText={setEstoque}
+              keyboardType="number-pad"
+              placeholderTextColor="#888"
+          />
+          <TextInput
+              style={styles.input}
+              placeholder="Tamanho (Opcional)"
+              value={tamanho}
+              onChangeText={setTamanho}
+              placeholderTextColor="#888"
+          />
+          <TextInput
+              style={styles.input}
+              placeholder="Categoria (Opcional)"
+              value={categoria}
+              onChangeText={setCategoria}
+              placeholderTextColor="#888"
+          />
 
-      {/* Placeholder para Adicionar Foto  */}
-      <TouchableOpacity style={styles.imagePickerButton} onPress={handleSelecionarFoto}>
-        <Text style={styles.imagePickerText}>Adicionar Foto (Pendente)</Text>
-      </TouchableOpacity>
-      {
-        // Adicionar foto *EM ANALISE AINDA
-      }
+          {/* Placeholder para Adicionar Foto  */}
+          <TouchableOpacity style={styles.imagePickerButton} onPress={() => Alert.alert("Funcionalidade Pendente", "A seleção de fotos será implementada futuramente.")}>
+            <Text style={styles.imagePickerText}>Adicionar Foto (Pendente)</Text>
+          </TouchableOpacity>
 
 
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleAdicionarMercadoria}
-          disabled={isLoading}
-        >
-          {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>ADICIONAR</Text>}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.cancelButton}
-          onPress={() => navigation.goBack()}
-          disabled={isLoading}
-        >
-          <Text style={styles.cancelButtonText}>CANCELAR</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+          <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                  style={styles.button}
+                  onPress={handleAdicionarMercadoria}
+                  disabled={isLoading}
+              >
+                  {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>ADICIONAR</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => navigation.goBack()}
+                  disabled={isLoading}
+              >
+                  <Text style={styles.cancelButtonText}>CANCELAR</Text>
+              </TouchableOpacity>
+          </View>
+      </ScrollView>
   );
 }
