@@ -1,37 +1,64 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, FlatList, ActivityIndicator, Alert, TouchableOpacity, TextInput } from 'react-native'; // Adicionado TextInput para futura pesquisa
+import { View, Text, FlatList, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import { styles as listarVendasStyles } from './stylesListarVendas'; // Seus estilos
+import { styles as listarVendasStyles } from './stylesListarVendas';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../App';
-import { Cliente } from './ListarClientesScreen';
-import { Produto } from './ListarMercadoriasScreen';
+import { RootStackParamList } from '../../App'; //
 
-// Interface para ItemVenda como vem do backend
-interface ItemVenda {
-  id: number;
-  produto: Produto;
-  quantidadeVendida: number;
-  precoUnitario: number;
+// Interfaces atualizadas para refletir os campos de snapshot do backend
+
+// Interface base para Produto (pode ser mais completa se necessário)
+interface ProdutoSnapshotInfo {
+  id: number; // ID do produto original
+  nome?: string; // Nome atual do produto original (pode estar desatualizado ou de um produto inativo)
+  ativo?: boolean; // Status atual do produto original
+  // Adicione outros campos do produto original se precisar acessá-los diretamente
 }
 
-// Interface para Venda como vem do backend
+// Interface base para Cliente (pode ser mais completa se necessário)
+interface ClienteSnapshotInfo {
+  id: number; // ID do cliente original
+  nome?: string; // Nome atual do cliente original
+  ativo?: boolean; // Status atual do cliente original
+  // Adicione outros campos do cliente original se precisar acessá-los
+}
+
+interface ItemVenda {
+  id: number;
+  produto: ProdutoSnapshotInfo | null; // Link para o produto original (pode estar inativo)
+  quantidadeVendida: number; // No backend, este campo é 'quantidade' em ItemVenda.java
+                               // Se o payload do frontend envia 'quantidadeVendida', certifique-se que o backend o mapeia para 'quantidade'
+                               // Ou alinhe os nomes. Assumindo que o backend retorna 'quantidade'.
+  quantidade: number; // Usando 'quantidade' conforme ItemVenda.java
+
+  // Campos de Snapshot do Produto (do momento da venda)
+  precoUnitarioSnapshot: number;
+  nomeProdutoSnapshot: string;
+  tamanhoSnapshot?: string;
+  categoriaSnapshot?: string;
+  // subtotal: number; // O subtotal pode ser calculado no frontend ou vir do backend
+}
+
 export interface Venda {
   id: number;
-  cliente: Cliente | null;
+  cliente: ClienteSnapshotInfo | null; // Link para o cliente original (pode estar inativo)
   itens: ItemVenda[];
   totalVenda: number;
   dataVenda: string; // Data como string ISO
+
+  // Campos de Snapshot do Cliente (do momento da venda)
+  nomeClienteSnapshot: string | null;
+  emailClienteSnapshot?: string | null;
+  telefoneClienteSnapshot?: string | null;
 }
 
-// Interface para a resposta paginada da API
 interface PaginatedResponse<T> {
   content: T[];
   totalPages: number;
   totalElements: number;
-  number: number; // Número da página atual (0-indexed)
+  number: number;
   size: number;
   first: boolean;
   last: boolean;
@@ -39,7 +66,7 @@ interface PaginatedResponse<T> {
 }
 
 const API_BASE_URL = 'http://192.168.1.5:8080';
-const PAGE_SIZE = 10; // Quantas vendas carregar por página
+const PAGE_SIZE = 10;
 
 type ListarVendasNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ListarVendas'>;
 
@@ -49,30 +76,22 @@ export default function ListarVendasScreen() {
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [isLoading, setIsLoading] = useState(false); 
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  // const [isDeleting, setIsDeleting] = useState<number | null>(null); // Para futura deleção
   const [error, setError] = useState<string | null>(null);
   
   const currentPageRef = useRef(0);
   const hasMoreRef = useRef(true);
   const isFetchingRef = useRef(false);
 
-  // Estados para futura pesquisa (ex: por nome do cliente ou ID da venda)
-  // const [termoPesquisaInput, setTermoPesquisaInput] = useState(''); 
-  // const [termoPesquisaAtivo, setTermoPesquisaAtivo] = useState(''); 
-
-  const fetchVendas = useCallback(async (pageToFetch: number, /*searchTerm: string,*/ isNewSearchOrRefresh: boolean) => {
+  const fetchVendas = useCallback(async (pageToFetch: number, isNewSearchOrRefresh: boolean) => {
     if (isFetchingRef.current && !isNewSearchOrRefresh) {
-      console.log(`fetchVendas: SKIP - Já buscando. Page: ${pageToFetch}`);
       return;
     }
     if (!isNewSearchOrRefresh && !hasMoreRef.current) {
-      console.log(`fetchVendas: SKIP - Não há mais páginas. Page: ${pageToFetch}`);
       setIsLoadingMore(false);
       return;
     }
 
     isFetchingRef.current = true;
-    console.log(`FETCHING VENDAS: page ${pageToFetch}, newSearch/Refresh: ${isNewSearchOrRefresh}`);
     if (isNewSearchOrRefresh) setIsLoading(true); else setIsLoadingMore(true);
     if (isNewSearchOrRefresh) setError(null);
 
@@ -80,12 +99,7 @@ export default function ListarVendasScreen() {
       const token = await SecureStore.getItemAsync('userToken');
       if (!token) throw new Error("Token não encontrado.");
 
-      // Assumindo que o backend /vendas agora aceita paginação e ordenação
-      // Ordenando pela data da venda, mais recentes primeiro
-      let url = `${API_BASE_URL}/vendas?page=${pageToFetch}&size=${PAGE_SIZE}&sortBy=dataVenda&sortDir=desc`;
-      // if (searchTerm.trim() !== '') { // Para futura pesquisa
-      //   url += `&filtro=${encodeURIComponent(searchTerm.trim())}`; // Ajuste o nome do parâmetro de filtro
-      // }
+      let url = `${API_BASE_URL}/vendas?page=${pageToFetch}&size=${PAGE_SIZE}&sort=dataVenda,desc`; // Mais recentes primeiro
 
       const response = await axios.get<PaginatedResponse<Venda>>(url, {
         headers: { Authorization: `Bearer ${token}` },
@@ -108,6 +122,7 @@ export default function ListarVendasScreen() {
       let errorMessage = "Não foi possível carregar o histórico de vendas.";
        if (axios.isAxiosError(err) && err.response) {
             if (err.response.status === 401 || err.response.status === 403) errorMessage = "Sessão expirada ou token inválido.";
+            else if (err.response.data?.erro) errorMessage = err.response.data.erro; // Usar a chave 'erro' se vier do backend
             else if (err.response.data?.message) errorMessage = err.response.data.message;
         } else if (err.message) errorMessage = err.message;
       setError(errorMessage);
@@ -117,45 +132,30 @@ export default function ListarVendasScreen() {
       setIsLoadingMore(false);
       isFetchingRef.current = false;
     }
-  }, []); // useCallback sem dependências problemáticas
-
-  // Efeito para debounce (se implementar pesquisa)
-  // useEffect(() => { ... }, [termoPesquisaInput, termoPesquisaAtivo]);
-
-  // Efeito para buscar quando termoPesquisaAtivo mudar (se implementar pesquisa)
-  // useEffect(() => {
-  //   currentPageRef.current = 0; 
-  //   hasMoreRef.current = true;
-  //   fetchVendas(0, termoPesquisaAtivo, true);
-  // }, [termoPesquisaAtivo, fetchVendas]);
+  }, [error]); // Removido 'error' da dependência para evitar loops se o erro não for resetado corretamente em alguns fluxos.
+               // O erro é resetado no início da função 'fetchVendas' quando 'isNewSearchOrRefresh' é true.
 
   useFocusEffect(
     useCallback(() => {
-      console.log("useFocusEffect: Tela ListarVendas ganhou foco.");
       currentPageRef.current = 0;
       hasMoreRef.current = true;
-      // setVendas([]); // fetchVendas com isNewSearchOrRefresh=true lida com isso
-      fetchVendas(0 /*termoPesquisaAtivo*/, true); // "" para termo de pesquisa inicial
+      fetchVendas(0, true);
       return () => {};
-    }, [fetchVendas /*, termoPesquisaAtivo*/]) // Adicionar termoPesquisaAtivo se/quando a pesquisa for implementada
+    }, [fetchVendas]) 
   );
   
   const handleLoadMore = () => {
     if (!isFetchingRef.current && hasMoreRef.current) {
-      console.log("handleLoadMore Vendas: Carregando próxima página:", currentPageRef.current + 1);
       fetchVendas(currentPageRef.current + 1, false);
     }
   };
 
   const handleRefresh = () => {
-    console.log("handleRefresh Vendas: Puxou para atualizar.");
     currentPageRef.current = 0;
     hasMoreRef.current = true;
     fetchVendas(0, true);
   };
   
-  // const handleSearchSubmit = () => { ... }; // Se implementar pesquisa
-
   const formatarData = (dataISO: string) => {
     if (!dataISO) return 'Data indisponível';
     try {
@@ -182,20 +182,23 @@ export default function ListarVendasScreen() {
         <Text style={listarVendasStyles.saleId}>Venda ID: {item.id}</Text>
         <Text style={listarVendasStyles.saleDate}>{formatarData(item.dataVenda)}</Text>
       </View>
-      {item.cliente ? (
-        <Text style={listarVendasStyles.customerName}>Cliente: {item.cliente.nome}</Text>
-      ) : (
-        <Text style={listarVendasStyles.customerName}>Cliente: Não informado</Text>
-      )}
+      
+      {/* Usar nomeClienteSnapshot. Se for nulo, pode indicar "Cliente Não Informado" ou similar */}
+      <Text style={listarVendasStyles.customerName}>
+        Cliente: {item.nomeClienteSnapshot || 'Não informado'}
+      </Text>
+      
       <Text style={listarVendasStyles.itemsTitle}>Itens ({item.itens.length}):</Text>
-      {item.itens.slice(0, 3).map(itemVenda => ( // Mostra no máximo 3 itens na prévia
+      {item.itens.slice(0, 3).map(itemVenda => (
         <Text key={itemVenda.id.toString()} style={listarVendasStyles.itemDetailText}>
-          - {itemVenda.quantidadeVendida}x {itemVenda.produto.nome} (R$ {itemVenda.precoUnitario.toFixed(2)})
+          {/* Usar campos de snapshot do produto */}
+          - {itemVenda.quantidade}x {itemVenda.nomeProdutoSnapshot} (R$ {itemVenda.precoUnitarioSnapshot.toFixed(2)})
+          {itemVenda.tamanhoSnapshot ? ` - Tam: ${itemVenda.tamanhoSnapshot}` : ''}
+          {itemVenda.categoriaSnapshot ? ` - Cat: ${itemVenda.categoriaSnapshot}` : ''}
         </Text>
       ))}
       {item.itens.length > 3 && <Text style={listarVendasStyles.itemDetailText}>  ...e mais {item.itens.length - 3} item(ns)</Text>}
       <Text style={listarVendasStyles.totalSale}>Total: R$ {item.totalVenda.toFixed(2)}</Text>
-      {/* Adicionar aqui botões para "Ver Detalhes" ou "Deletar Venda" se necessário */}
     </View>
   );
 
@@ -203,7 +206,6 @@ export default function ListarVendasScreen() {
     return (
       <View style={listarVendasStyles.container}>
         <Text style={listarVendasStyles.headerTitle}>Histórico de Vendas</Text>
-        {/* Adicionar TextInput para pesquisa aqui no futuro */}
         <View style={listarVendasStyles.centered}>
           <ActivityIndicator size="large" color="#323588"/>
           <Text style={listarVendasStyles.loadingText}>Carregando histórico...</Text>
@@ -216,7 +218,6 @@ export default function ListarVendasScreen() {
       return (
         <View style={listarVendasStyles.container}>
           <Text style={listarVendasStyles.headerTitle}>Histórico de Vendas</Text>
-          {/* Adicionar TextInput para pesquisa aqui no futuro */}
           <View style={listarVendasStyles.centered}>
             <Text style={listarVendasStyles.errorText}>Erro ao carregar: {error}</Text>
             <TouchableOpacity style={listarVendasStyles.retryButton} onPress={() => fetchVendas(0, true)}>
@@ -230,19 +231,10 @@ export default function ListarVendasScreen() {
   return (
     <View style={listarVendasStyles.container}>
       <Text style={listarVendasStyles.headerTitle}>Histórico de Vendas</Text>
-      {/* <TextInput
-        style={listarVendasStyles.searchInput} // Adicionar este estilo se implementar pesquisa
-        placeholder="Pesquisar vendas..."
-        value={termoPesquisaInput}
-        onChangeText={setTermoPesquisaInput}
-        onSubmitEditing={handleSearchSubmit}
-        returnKeyType="search"
-      />
-      */}
       <FlatList
         data={vendas}
         renderItem={renderVendaItem}
-        keyExtractor={(item) => `venda-${item.id.toString()}`} // Chave prefixada
+        keyExtractor={(item) => `venda-${item.id.toString()}`}
         contentContainerStyle={listarVendasStyles.listContentContainer}
         onRefresh={handleRefresh}
         refreshing={isLoading && currentPageRef.current === 0 && !isLoadingMore}
@@ -254,7 +246,6 @@ export default function ListarVendasScreen() {
                 <View style={listarVendasStyles.centered}>
                     <Text style={listarVendasStyles.emptyDataText}>
                         Nenhuma venda registrada.
-                        {/* {termoPesquisaAtivo ? `para "${termoPesquisaAtivo}".` : 'registrada.'} */}
                     </Text>
                 </View>
             ) : null
