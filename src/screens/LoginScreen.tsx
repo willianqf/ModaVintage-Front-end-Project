@@ -3,9 +3,9 @@ import { View, Text, TextInput, TouchableOpacity, Image, Alert, ActivityIndicato
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { styles as screenStyles } from './stylesLogin'; // Seus estilos para esta tela
-import { useNavigation } from '@react-navigation/native'; // Importar useNavigation
+import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../App';
+import { RootStackParamList } from '../../App'; //
 
 const API_BASE_URL = 'http://192.168.1.5:8080';
 
@@ -17,7 +17,7 @@ interface CustomLoginScreenProps {
 type Props = LoginScreenNavProps & CustomLoginScreenProps;
 
 
-export default function LoginScreen({ navigation, onLoginSuccess }: Props) { // Adicionado navigation
+export default function LoginScreen({ navigation, onLoginSuccess }: Props) {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -41,13 +41,23 @@ export default function LoginScreen({ navigation, onLoginSuccess }: Props) { // 
     } catch (error: any) {
       console.error("Erro no login:", JSON.stringify(error.response?.data || error.message));
       if (axios.isAxiosError(error) && error.response) {
+        // Extrai a mensagem de erro da API, priorizando o campo 'erro'
+        let apiErrorMessage;
+        if (error.response.data && typeof error.response.data === 'object' && error.response.data.erro) {
+          apiErrorMessage = error.response.data.erro; // Acessa a propriedade 'erro'
+        } else if (typeof error.response.data === 'string') {
+          // Caso a API, por algum motivo, retorne uma string diretamente
+          apiErrorMessage = error.response.data;
+        }
+
         if (error.response.status === 401) {
-          Alert.alert("Falha no Login", error.response.data?.message || error.response.data || "Email ou senha inválidos.");
+          Alert.alert("Falha no Login", apiErrorMessage || "Email ou senha inválidos.");
         } else {
-          Alert.alert("Erro no Login", `Erro ${error.response.status}: ${error.response.data?.message || error.response.data || 'Não foi possível conectar.'}`);
+          Alert.alert("Erro no Login", `Erro ${error.response.status}: ${apiErrorMessage || 'Não foi possível processar sua solicitação.'}`);
         }
       } else {
-        Alert.alert("Erro", "Não foi possível realizar o login. Verifique sua conexão.");
+        // Erro não relacionado à resposta da API (ex: problema de rede)
+        Alert.alert("Erro", "Não foi possível realizar o login. Verifique sua conexão ou tente novamente mais tarde.");
       }
     } finally {
       setIsLoading(false);

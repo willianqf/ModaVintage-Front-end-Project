@@ -4,9 +4,9 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../App';
-import { styles } from './stylesEditarMercadoria'; // CORRIGIDO: 
-import { Produto } from './ListarMercadoriasScreen'; // Importar a interface Produto
+import { RootStackParamList } from '../../App'; //
+import { styles } from './stylesEditarMercadoria'; //
+import { Produto } from './ListarMercadoriasScreen'; //
 
 const API_BASE_URL = 'http://192.168.1.5:8080';
 
@@ -37,12 +37,12 @@ export default function EditarMercadoriaScreen() {
           navigation.goBack();
           return;
         }
-        const response = await axios.get<Produto>(`<span class="math-inline">\{API\_BASE\_URL\}/produtos/</span>{produtoId}`, {
+        // LINHA CORRIGIDA ABAIXO:
+        const response = await axios.get<Produto>(`${API_BASE_URL}/produtos/${produtoId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const produto = response.data;
         setNome(produto.nome);
-        // Certifique-se de que precoCusto é tratado como string e pode ser nulo/undefined
         setPrecoCusto(produto.precoCusto !== undefined && produto.precoCusto !== null ? produto.precoCusto.toString() : '');
         setPreco(produto.preco.toString());
         setEstoque(produto.estoque.toString());
@@ -102,7 +102,7 @@ export default function EditarMercadoriaScreen() {
           return;
         }
 
-        const produtoData: Partial<Produto> = { // Usando Partial para permitir campos opcionais na atualização
+        const produtoData: Partial<Produto> = {
             nome: nome.trim(),
             precoCusto: precoCustoVal,
             preco: precoVendaVal,
@@ -111,7 +111,7 @@ export default function EditarMercadoriaScreen() {
             categoria: categoria.trim() || undefined,
         };
 
-        await axios.put(`<span class="math-inline">\{API\_BASE\_URL\}/produtos/</span>{produtoId}`, produtoData, {
+        await axios.put(`${API_BASE_URL}/produtos/${produtoId}`, produtoData, {
             headers: { Authorization: `Bearer ${token}` },
         });
 
