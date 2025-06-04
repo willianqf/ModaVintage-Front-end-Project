@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, ActivityIndicator } from 'react-native';
-import axios from 'axios';
-import { styles } from './stylesResetarSenha'; // Seus estilos existentes
+// import axios from 'axios'; // REMOVA esta linha
+import { styles } from './stylesResetarSenha'; //
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../App'; // Ajuste o caminho se necessário
+import { RootStackParamList } from '../../App';
 
-const API_BASE_URL = 'http://192.168.1.5:8080';
+// Importe a instância configurada do Axios e o helper isAxiosError
+import axiosInstance from '../api/axiosInstance'; // Ajuste o caminho se necessário
+import axios from 'axios'; // Para usar axios.isAxiosError
+
+// const API_BASE_URL = 'http://192.168.1.5:8080'; // Não é mais necessário
 
 type ResetarSenhaRouteProp = RouteProp<RootStackParamList, 'ResetarSenha'>;
 type ResetarSenhaNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ResetarSenha'>;
@@ -15,18 +19,19 @@ export default function ResetarSenhaScreen() {
   const navigation = useNavigation<ResetarSenhaNavigationProp>();
   const route = useRoute<ResetarSenhaRouteProp>();
 
-  const emailRecebido = route.params?.email; // O email ainda pode ser recebido para exibição
+  const emailRecebido = route.params?.email;
 
-  const [tokenInput, setTokenInput] = useState(''); // Token será digitado pelo usuário
+  const [tokenInput, setTokenInput] = useState('');
   const [novaSenha, setNovaSenha] = useState('');
   const [confirmarNovaSenha, setConfirmarNovaSenha] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // O useEffect que preenchia o token foi removido, pois o usuário digitará.
+  // O useEffect que preenchia o token (se existisse) foi removido no seu código original,
+  // pois o usuário digitará o token recebido por email. Mantemos assim.
 
   const handleResetarSenha = async () => {
-    if (!tokenInput.trim() || tokenInput.trim().length !== 6) { // Valida se é um token de 6 dígitos
-      Alert.alert("Token Inválido", "Por favor, insira o código de 6 dígitos recebido por email.");
+    if (!tokenInput.trim() || tokenInput.trim().length !== 6) {
+      Alert.alert("Token Inválido", "Por favor, insira o código de 6 dígitos recebido por e-mail.");
       return;
     }
     if (!novaSenha) {
@@ -48,21 +53,30 @@ export default function ResetarSenhaScreen() {
         token: tokenInput.trim(),
         novaSenha: novaSenha,
       };
-      const response = await axios.post(`${API_BASE_URL}/auth/resetar-senha`, payload);
+      // Use axiosInstance
+      // O backend AuthController -> /resetar-senha não requer autenticação JWT,
+      // pois o usuário está tentando recuperar a senha.
+      // Portanto, podemos usar 'axios' diretamente aqui ou 'axiosInstance'.
+      // Usar 'axiosInstance' é inofensivo, mesmo que não adicione um token.
+      // Se preferir, para rotas públicas, 'axios.post' também funcionaria.
+      // Manteremos axiosInstance para consistência, mas ciente que o token JWT não é o foco aqui.
+      const response = await axiosInstance.post('/auth/resetar-senha', payload); //
+      
       Alert.alert(
         "Sucesso",
         response.data?.mensagem || "Senha redefinida com sucesso! Faça login com sua nova senha.",
         [{ text: "OK", onPress: () => navigation.navigate('Login') }]
       );
     } catch (error: any) {
-      console.error("Erro ao resetar senha:", JSON.stringify(error.response?.data || error.message));
+      console.error("ResetarSenhaScreen: Erro ao resetar senha:", JSON.stringify(error.response?.data || error.message));
       let errorMessage = "Não foi possível redefinir sua senha. Verifique o token e tente novamente.";
       if (axios.isAxiosError(error) && error.response?.data) {
+        // O backend retorna {erro: "Token inválido..."} ou {mensagem: "Senha redefinida..."}
         errorMessage = error.response.data.erro || error.response.data.message || errorMessage;
-      } else if (error.message) {
-        // Não expor error.message diretamente
+      } else if (!axios.isAxiosError(error) && error.message) {
+        // Não expor error.message diretamente se puder vazar info
       }
-      Alert.alert("Erro", errorMessage);
+      Alert.alert("Erro ao Redefinir", errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -85,9 +99,10 @@ export default function ResetarSenhaScreen() {
         placeholder="Código de 6 dígitos"
         value={tokenInput}
         onChangeText={setTokenInput}
-        keyboardType="number-pad" // Teclado numérico
-        maxLength={6} // Limita a 6 dígitos
+        keyboardType="number-pad"
+        maxLength={6}
         autoCapitalize="none"
+        placeholderTextColor="#888"
       />
       <TextInput
         style={styles.input}
@@ -95,6 +110,7 @@ export default function ResetarSenhaScreen() {
         value={novaSenha}
         onChangeText={setNovaSenha}
         secureTextEntry
+        placeholderTextColor="#888"
       />
       <TextInput
         style={styles.input}
@@ -102,6 +118,7 @@ export default function ResetarSenhaScreen() {
         value={confirmarNovaSenha}
         onChangeText={setConfirmarNovaSenha}
         secureTextEntry
+        placeholderTextColor="#888"
       />
 
       <TouchableOpacity style={styles.button} onPress={handleResetarSenha} disabled={isLoading}>

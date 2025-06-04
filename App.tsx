@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // Adicionado useCallback
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as SecureStore from 'expo-secure-store';
-import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import { ActivityIndicator, View, StyleSheet, Alert } from 'react-native';
+
+// Importe a instância do Axios e o configurador do logout handler
+import axiosInstance, { setGlobalLogoutHandler } from './src/api/axiosInstance'; // Ajuste o caminho se necessário
 
 // Importação telas
 import LoginScreen from './src/screens/LoginScreen';
@@ -26,9 +29,7 @@ import StatusScreen from './src/screens/StatusScreen';
 import SolicitarResetSenhaScreen from './src/screens/SolicitarResetSenhaScreen';
 import ResetarSenhaScreen from './src/screens/ResetarSenhaScreen';
 
-// Importe a interface Cliente do local onde ela está definida
-// Geralmente, é exportada da tela de listagem ou de um arquivo de tipos dedicado.
-import { Cliente } from './src/screens/ListarClientesScreen'; // Ajuste este caminho se necessário
+import { Cliente } from './src/screens/ListarClientesScreen';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -39,18 +40,16 @@ export type RootStackParamList = {
   EditarMercadoria: { produtoId: number };
   Clientes: undefined;
   ListarClientes: undefined;
-  // MODIFICADO: AdicionarCliente pode receber 'originRoute' como parâmetro opcional
-  AdicionarCliente: { originRoute?: string }; 
+  AdicionarCliente: { originRoute?: string };
   EditarCliente: { clienteId: number };
-  VendasScreen: undefined; // Nome da rota como no seu Stack.Screen
-  // MODIFICADO: RegistrarVenda pode receber 'newlyAddedClient' como parâmetro opcional
-  RegistrarVenda: { newlyAddedClient?: Cliente }; 
+  VendasScreen: undefined;
+  RegistrarVenda: { newlyAddedClient?: Cliente };
   ListarVendas: undefined;
-  FornecedoresScreen: undefined; // Nome da rota como no seu Stack.Screen
+  FornecedoresScreen: undefined;
   ListarFornecedores: undefined;
   AdicionarFornecedor: undefined;
   EditarFornecedor: { fornecedorId: number };
-  StatusScreen: undefined; // Nome da rota como no seu Stack.Screen
+  StatusScreen: undefined;
   SolicitarResetSenha: undefined;
   ResetarSenha: { email?: string, token?: string };
 };
@@ -61,27 +60,73 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [userToken, setUserToken] = useState<string | null>(null);
 
+  // Usamos useCallback para garantir que a referência da função handleLogout não mude
+  // a menos que suas dependências mudem (neste caso, não há dependências).
+  const handleLogout = useCallback(async () => {
+    console.log("Executando handleLogout no App.tsx para limpar o token.");
+    await SecureStore.deleteItemAsync('userToken');
+    setUserToken(null);
+    // A mudança no estado userToken deve ser suficiente para o React Navigation
+    // redirecionar para as telas de não autenticado.
+  }, []); // Sem dependências, então a função é criada apenas uma vez.
+
   useEffect(() => {
+    // Configura o handler de logout global para a instância Axios assim que o App montar.
+    // Passamos a função `handleLogout` memoizada.
+    setGlobalLogoutHandler(handleLogout);
+
     const bootstrapAsync = async () => {
+      setIsLoading(true); // Garante que o loading seja exibido
       let token: string | null = null;
       try {
         token = await SecureStore.getItemAsync('userToken');
+        if (token) {
+          console.log("Token encontrado no SecureStore:", token);
+          // Tenta validar o token fazendo uma chamada leve a um endpoint protegido.
+          // O interceptor de request do axiosInstance adicionará o token ao header.
+          try {
+            console.log("App.tsx: Tentando validar token com o backend...");
+            // Usaremos GET /clientes com paginação mínima como um endpoint protegido para teste.
+            // O backend deve retornar 401 se o token for inválido.
+            // O backend SecurityConfig protege GET /clientes
+            await axiosInstance.get('/clientes?page=0&size=1');
+            console.log("App.tsx: Token validado com sucesso pelo backend.");
+            setUserToken(token);
+          } catch (validationError: any) {
+            // Se a chamada falhar com 401, o interceptor de response do axiosInstance
+            // já deverá ter chamado `globalLogoutHandler` (que chama `handleLogout`).
+            // Portanto, o estado `userToken` já deve ter sido atualizado para `null`.
+            // Logamos o erro para depuração.
+            console.warn("App.tsx: Erro durante a validação inicial do token:", validationError.message);
+            // Não é estritamente necessário chamar handleLogout() aqui novamente,
+            // pois o interceptor deve cuidar disso. Se o interceptor falhar,
+            // esta seria uma segunda camada, mas pode causar chamadas duplicadas.
+            // A lógica do interceptor já deve ter limpado o token.
+            // Apenas para garantir, se por algum motivo o token não foi limpo pelo interceptor:
+            if (await SecureStore.getItemAsync('userToken')) {
+                console.warn("App.tsx: Token ainda no SecureStore após erro de validação, forçando logout.");
+                await handleLogout();
+            }
+          }
+        } else {
+          console.log("App.tsx: Nenhum token encontrado no SecureStore. Definindo userToken como null.");
+          setUserToken(null);
+        }
       } catch (e) {
-        console.error("Falha ao restaurar token do SecureStore", e);
+        console.error("App.tsx: Falha crítica ao restaurar ou validar token:", e);
+        await handleLogout(); // Em caso de erro inesperado, desloga.
+      } finally {
+        setIsLoading(false);
       }
-      setUserToken(token);
-      setIsLoading(false);
     };
+
     bootstrapAsync();
-  }, []);
+  }, [handleLogout]); // handleLogout é agora uma dependência estável devido ao useCallback.
 
-  const handleLoginSuccess = (token: string) => {
+  const handleLoginSuccess = async (token: string) => {
+    // O LoginScreen já salva o token no SecureStore.
+    // Apenas atualizamos o estado aqui para forçar a re-renderização da navegação.
     setUserToken(token);
-  };
-
-  const handleLogout = () => {
-    setUserToken(null);
-    SecureStore.deleteItemAsync('userToken');
   };
 
   if (isLoading) {
@@ -118,8 +163,7 @@ export default function App() {
             <Stack.Screen name="ListarClientes" component={ListarClientesScreen} />
             <Stack.Screen name="AdicionarCliente" component={AdicionarClienteScreen} />
             <Stack.Screen name="EditarCliente" component={EditarClienteScreen} />
-            {/* Mantive os nomes das rotas como estavam no seu código original para consistência */}
-            <Stack.Screen name="VendasScreen" component={VendasScreen} /> 
+            <Stack.Screen name="VendasScreen" component={VendasScreen} />
             <Stack.Screen name="RegistrarVenda" component={RegistrarVendaScreen} />
             <Stack.Screen name="ListarVendas" component={ListarVendasScreen} />
             <Stack.Screen name="FornecedoresScreen" component={FornecedoresScreen} />
@@ -139,6 +183,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f3f3f3', // Cor de fundo consistente
+    backgroundColor: '#f3f3f3',
   }
 });

@@ -1,57 +1,58 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, ActivityIndicator } from 'react-native';
-import axios from 'axios';
-import * as SecureStore from 'expo-secure-store';
+// import axios from 'axios'; // REMOVA esta linha
+// import * as SecureStore from 'expo-secure-store'; // Não é mais necessário importar SecureStore diretamente aqui
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../App'; // Ajuste o caminho se necessário
+import { RootStackParamList } from '../../App';
 import { styles } from './stylesEditarCliente';
 import { Cliente } from './ListarClientesScreen'; // Importa a interface Cliente
 
-const API_BASE_URL = 'http://192.168.1.5:8080'; // Sua API base
+// Importe a instância configurada do Axios e o helper isAxiosError
+import axiosInstance from '../api/axiosInstance'; // Ajuste o caminho se necessário
+import axios from 'axios'; // Para usar axios.isAxiosError
 
-// Tipagem para os parâmetros da rota
+// const API_BASE_URL = 'http://192.168.1.5:8080'; // Esta constante não será mais usada diretamente nas chamadas
+
 type EditarClienteRouteProp = RouteProp<RootStackParamList, 'EditarCliente'>;
-
-// Tipagem para a prop de navegação
 type EditarClienteNavigationProp = NativeStackNavigationProp<RootStackParamList, 'EditarCliente'>;
 
 export default function EditarClienteScreen() {
   const navigation = useNavigation<EditarClienteNavigationProp>();
   const route = useRoute<EditarClienteRouteProp>();
-  const { clienteId } = route.params; // Pega o ID do cliente passado como parâmetro
+  const { clienteId } = route.params;
 
   const [nome, setNome] = useState('');
   const [telefone, setTelefone] = useState('');
   const [email, setEmail] = useState('');
 
-  const [isLoading, setIsLoading] = useState(false); // Para o botão de salvar
-  const [isFetchingData, setIsFetchingData] = useState(true); // Para o carregamento inicial dos dados
+  const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingData, setIsFetchingData] = useState(true);
 
   useEffect(() => {
     const fetchClienteData = async () => {
       setIsFetchingData(true);
       try {
-        const token = await SecureStore.getItemAsync('userToken');
-        if (!token) {
-          Alert.alert("Autenticação", "Token não encontrado. Faça login novamente.");
-          navigation.navigate('Login'); // Ou outra ação de redirecionamento
-          return;
-        }
-
-        const response = await axios.get<Cliente>(`${API_BASE_URL}/clientes/${clienteId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        // O token será adicionado automaticamente pelo interceptor do axiosInstance
+        // Use axiosInstance e apenas o endpoint relativo
+        const response = await axiosInstance.get<Cliente>(`/clientes/${clienteId}`);
 
         const cliente = response.data;
         setNome(cliente.nome);
-        setTelefone(cliente.telefone || ''); // Trata caso telefone seja null/undefined
-        setEmail(cliente.email || '');     // Trata caso email seja null/undefined
+        setTelefone(cliente.telefone || '');
+        setEmail(cliente.email || '');
 
       } catch (error: any) {
-        console.error("Erro ao buscar dados do cliente:", error);
-        Alert.alert("Erro", "Não foi possível carregar os dados do cliente para edição.");
-        navigation.goBack();
+        console.error("EditarClienteScreen: Erro ao buscar dados do cliente:", JSON.stringify(error.response?.data || error.message));
+        // O interceptor já deve lidar com 401
+        if (axios.isAxiosError(error) && error.response?.status !== 401) {
+          Alert.alert("Erro ao Carregar Dados", "Não foi possível carregar os dados do cliente para edição.");
+        } else if (!axios.isAxiosError(error)) {
+           Alert.alert("Erro Desconhecido", "Ocorreu um erro inesperado ao carregar os dados.");
+        }
+        // Se for 401, o interceptor global deve deslogar o usuário.
+        // A navegação de volta pode ser desnecessária se o logout já redireciona para Login.
+        // navigation.goBack(); // Comentado pois o logout global deve tratar o redirecionamento
       } finally {
         setIsFetchingData(false);
       }
@@ -60,48 +61,45 @@ export default function EditarClienteScreen() {
     if (clienteId) {
       fetchClienteData();
     }
-  }, [clienteId, navigation]);
+  }, [clienteId]); // Removida a dependência de navigation para evitar re-execuções desnecessárias
 
   const handleSalvarAlteracoes = async () => {
     if (!nome.trim()) {
       Alert.alert("Erro de Validação", "O nome do cliente é obrigatório.");
       return;
     }
-    // Adicione mais validações para email/telefone se desejar
 
     setIsLoading(true);
     try {
-      const token = await SecureStore.getItemAsync('userToken');
-      if (!token) {
-        Alert.alert("Autenticação", "Token não encontrado. Faça login novamente.");
-        setIsLoading(false);
-        return;
-      }
-
+      // O token será adicionado automaticamente pelo interceptor do axiosInstance
       const clienteDataAtualizado = {
-        nome,
-        telefone: telefone.trim() === '' ? null : telefone.trim(), // Envia null se vazio
-        email: email.trim() === '' ? null : email.trim(),       // Envia null se vazio
+        nome: nome.trim(),
+        telefone: telefone.trim() || null,
+        email: email.trim().toLowerCase() || null,
       };
 
-      await axios.put(`${API_BASE_URL}/clientes/${clienteId}`, clienteDataAtualizado, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // Use axiosInstance e apenas o endpoint relativo
+      await axiosInstance.put(`/clientes/${clienteId}`, clienteDataAtualizado);
 
       Alert.alert("Sucesso", "Cliente atualizado com sucesso!");
-      navigation.goBack(); // Volta para a tela anterior (provavelmente a lista de clientes)
-                           // A lista deve atualizar automaticamente devido ao useFocusEffect
+      navigation.goBack();
     } catch (error: any) {
-      console.error("Erro ao atualizar cliente:", error);
-      let errorMessage = "Não foi possível atualizar o cliente.";
-      if (axios.isAxiosError(error) && error.response) {
-        //(tratamento de erro da API mais detalhado, como nos outros formulários)
-        if (error.response.data?.message) errorMessage = error.response.data.message;
-        else if (typeof error.response.data === 'string') errorMessage = error.response.data;
-      } else if (error.message) {
-        errorMessage = error.message;
+      console.error("EditarClienteScreen: Erro ao atualizar cliente:", JSON.stringify(error.response?.data || error.message));
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          // O interceptor já deve lidar com 401
+          if (error.response.status !== 401) {
+            const apiErrorMessage = error.response.data?.erro || error.response.data?.message || 'Não foi possível atualizar o cliente.';
+            Alert.alert("Erro ao Salvar", apiErrorMessage);
+          } else {
+            console.warn("EditarClienteScreen: Erro 401, o interceptor deve ter deslogado.");
+          }
+        } else {
+          Alert.alert("Erro de Conexão", "Não foi possível conectar ao servidor.");
+        }
+      } else {
+        Alert.alert("Erro Desconhecido", "Ocorreu um erro inesperado ao salvar.");
       }
-      Alert.alert("Erro", errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -117,7 +115,7 @@ export default function EditarClienteScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 50 }}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 50 }} keyboardShouldPersistTaps="handled">
       <Text style={styles.headerTitle}>Editar Cliente</Text>
 
       <TextInput
@@ -125,35 +123,38 @@ export default function EditarClienteScreen() {
         placeholder="Nome do Cliente"
         value={nome}
         onChangeText={setNome}
+        placeholderTextColor="#888"
       />
       <TextInput
         style={styles.input}
-        placeholder="Telefone"
+        placeholder="Telefone (Opcional)"
         value={telefone}
         onChangeText={setTelefone}
         keyboardType="phone-pad"
+        placeholderTextColor="#888"
       />
       <TextInput
         style={styles.input}
-        placeholder="E-mail"
+        placeholder="E-mail (Opcional)"
         value={email}
-        onChangeText={setEmail}
+        onChangeText={(text) => setEmail(text.toLowerCase())}
         keyboardType="email-address"
         autoCapitalize="none"
+        placeholderTextColor="#888"
       />
 
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={styles.button}
           onPress={handleSalvarAlteracoes}
-          disabled={isLoading}
+          disabled={isLoading || isFetchingData} // Desabilita também se estiver buscando dados
         >
           {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>SALVAR ALTERAÇÕES</Text>}
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.cancelButton}
           onPress={() => navigation.goBack()}
-          disabled={isLoading}
+          disabled={isLoading || isFetchingData}
         >
           <Text style={styles.cancelButtonText}>CANCELAR</Text>
         </TouchableOpacity>

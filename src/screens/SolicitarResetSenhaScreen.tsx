@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import axios from 'axios';
-import { styles } from './stylesSolicitarReset'; // Seus estilos existentes
+// import axios from 'axios'; // REMOVA esta linha
+import { styles } from './stylesSolicitarReset'; //
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../App'; // Ajuste o caminho se necessário
+import { RootStackParamList } from '../../App';
 
-const API_BASE_URL = 'http://192.168.1.5:8080'; // Sua API base
+// Importe a instância configurada do Axios e o helper isAxiosError
+import axiosInstance from '../api/axiosInstance'; // Ajuste o caminho se necessário
+import axios from 'axios'; // Para usar axios.isAxiosError
+
+// const API_BASE_URL = 'http://192.168.1.5:8080'; // Não é mais necessário
 
 type SolicitarResetNavigationProp = NativeStackNavigationProp<RootStackParamList, 'SolicitarResetSenha'>;
 
@@ -17,34 +21,35 @@ export default function SolicitarResetSenhaScreen() {
 
   const handleSolicitarReset = async () => {
     if (!email.trim() || !email.includes('@')) {
-      Alert.alert("Email Inválido", "Por favor, insira um endereço de email válido.");
+      Alert.alert("Email Inválido", "Por favor, insira um endereço de e-mail válido.");
       return;
     }
     setIsLoading(true);
     try {
-      // A API agora retorna apenas uma mensagem genérica
-      const response = await axios.post(`${API_BASE_URL}/auth/solicitar-reset-senha`, { email });
+      // Use axiosInstance. Esta rota é pública, mas usar axiosInstance é consistente.
+      const response = await axiosInstance.post('/auth/solicitar-reset-senha', { email: email.trim().toLowerCase() }); //
 
       Alert.alert(
         "Solicitação Enviada",
-        response.data?.mensagem || "Se um email correspondente for encontrado, instruções e um código de recuperação serão enviados.",
+        response.data?.mensagem || "Se um e-mail correspondente for encontrado, instruções e um código de recuperação serão enviados.",
         [
-            { text: "OK", onPress: () => {
-                // Navega para a tela de resetar senha, passando apenas o email (opcional)
-                // O usuário precisará obter o token do "email" (console/Mailtrap)
-                navigation.navigate('ResetarSenha', { email: email });
-            }}
+          {
+            text: "OK", onPress: () => {
+              navigation.navigate('ResetarSenha', { email: email.trim().toLowerCase() });
+            }
+          }
         ]
       );
 
     } catch (error: any) {
-      console.error("Erro ao solicitar reset:", JSON.stringify(error.response?.data || error.message));
-      // O backend já retorna uma mensagem genérica em caso de erro também, para não vazar info de email
-      let errorMessage = "Não foi possível processar sua solicitação. Tente novamente.";
+      console.error("SolicitarResetSenhaScreen: Erro ao solicitar reset:", JSON.stringify(error.response?.data || error.message));
+      // O backend já retorna uma mensagem genérica para não vazar informação de e-mail.
+      // Exibimos essa mensagem ou uma padrão.
+      let errorMessage = "Não foi possível processar sua solicitação. Tente novamente mais tarde.";
       if (axios.isAxiosError(error) && error.response?.data) {
         errorMessage = error.response.data.mensagem || error.response.data.erro || errorMessage;
-      } else if (error.message) {
-        // Não expor error.message diretamente se puder vazar info
+      } else if (!axios.isAxiosError(error) && error.message) {
+        // Não expor error.message diretamente se puder vazar info sobre o sistema
       }
       Alert.alert("Erro na Solicitação", errorMessage);
     } finally {
@@ -62,10 +67,11 @@ export default function SolicitarResetSenhaScreen() {
         style={styles.input}
         placeholder="Seu e-mail de cadastro"
         value={email}
-        onChangeText={setEmail}
+        onChangeText={(text) => setEmail(text.toLowerCase())}
         keyboardType="email-address"
         autoCapitalize="none"
         autoComplete="email"
+        placeholderTextColor="#888"
       />
       <TouchableOpacity style={styles.button} onPress={handleSolicitarReset} disabled={isLoading}>
         {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>ENVIAR SOLICITAÇÃO</Text>}
