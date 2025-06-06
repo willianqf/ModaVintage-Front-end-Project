@@ -1,17 +1,13 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, FlatList, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
-// import axios from 'axios'; // REMOVA esta linha
-// import * as SecureStore from 'expo-secure-store'; // Não é mais necessário aqui
-import { styles as listarVendasStyles } from './stylesListarVendas'; //
+import { styles as listarVendasStyles } from './stylesListarVendas';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
+import axiosInstance from '../api/axiosInstance';
+import axios from 'axios';
 
-// Importe a instância configurada do Axios e o helper isAxiosError
-import axiosInstance from '../api/axiosInstance'; // Ajuste o caminho se necessário
-import axios from 'axios'; // Para usar axios.isAxiosError
-
-// --- Interfaces (mantidas como no seu arquivo original) ---
+// --- Interfaces (mantidas) ---
 interface ProdutoSnapshotInfo {
   id: number;
   nome?: string;
@@ -27,8 +23,8 @@ interface ClienteSnapshotInfo {
 interface ItemVenda {
   id: number;
   produto: ProdutoSnapshotInfo | null;
-  quantidadeVendida: number; // Frontend usa este nome
-  quantidade: number; // Backend usa este nome, alinhado com ItemVenda.java
+  quantidadeVendida: number;
+  quantidade: number;
   precoUnitarioSnapshot: number;
   nomeProdutoSnapshot: string;
   tamanhoSnapshot?: string;
@@ -40,7 +36,7 @@ export interface Venda {
   cliente: ClienteSnapshotInfo | null;
   itens: ItemVenda[];
   totalVenda: number;
-  dataVenda: string; // Data como string ISO
+  dataVenda: string;
   nomeClienteSnapshot: string | null;
   emailClienteSnapshot?: string | null;
   telefoneClienteSnapshot?: string | null;
@@ -58,7 +54,6 @@ interface PaginatedResponse<T> {
 }
 // --- Fim das Interfaces ---
 
-// const API_BASE_URL = 'http://192.168.1.5:8080'; // Não é mais necessário
 const PAGE_SIZE = 10;
 
 type ListarVendasNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ListarVendas'>;
@@ -70,12 +65,14 @@ export default function ListarVendasScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState<number | null>(null); // ADICIONADO: Estado para controlar a deleção
 
   const currentPageRef = useRef(0);
   const hasMoreRef = useRef(true);
   const isFetchingRef = useRef(false);
 
   const fetchVendas = useCallback(async (pageToFetch: number, isNewSearchOrRefresh: boolean) => {
+    // ... (lógica de fetchVendas permanece a mesma)
     if (isFetchingRef.current && !isNewSearchOrRefresh) {
       return;
     }
@@ -89,14 +86,12 @@ export default function ListarVendasScreen() {
     if (isNewSearchOrRefresh) setError(null);
 
     try {
-      // O token será adicionado automaticamente pelo interceptor
       const params: Record<string, string | number> = {
         page: pageToFetch,
         size: PAGE_SIZE,
-        sort: 'dataVenda,desc', // Mais recentes primeiro, conforme VendaController
+        sort: 'dataVenda,desc',
       };
 
-      // Use axiosInstance
       const response = await axiosInstance.get<PaginatedResponse<Venda>>('/vendas', { params });
 
       if (response.data && response.data.content) {
@@ -135,24 +130,56 @@ export default function ListarVendasScreen() {
     useCallback(() => {
       currentPageRef.current = 0;
       hasMoreRef.current = true;
-      fetchVendas(0, true); // true para isNewSearchOrRefresh
+      fetchVendas(0, true);
       return () => {};
-    }, [fetchVendas]) // fetchVendas agora é estável
+    }, [fetchVendas])
   );
 
   const handleLoadMore = () => {
     if (!isFetchingRef.current && hasMoreRef.current && !isLoadingMore) {
-      fetchVendas(currentPageRef.current + 1, false); // false para isNewSearchOrRefresh
+      fetchVendas(currentPageRef.current + 1, false);
     }
   };
 
   const handleRefresh = () => {
     currentPageRef.current = 0;
     hasMoreRef.current = true;
-    fetchVendas(0, true); // true para isNewSearchOrRefresh
+    fetchVendas(0, true);
+  };
+
+  // ADICIONADO: Função para confirmar e deletar a venda
+  const confirmarDelecao = (vendaId: number) => {
+    Alert.alert(
+      "Cancelar Venda",
+      "Tem certeza que deseja cancelar esta venda? O estoque dos produtos será estornado.",
+      [
+        { text: "Não", style: "cancel" },
+        { text: "Sim, Cancelar", onPress: () => handleDeletarVenda(vendaId), style: "destructive" }
+      ]
+    );
+  };
+
+  // ADICIONADO: Lógica para chamar a API de deleção
+  const handleDeletarVenda = async (vendaId: number) => {
+    setIsDeleting(vendaId);
+    try {
+      await axiosInstance.delete(`/vendas/${vendaId}`);
+      Alert.alert("Sucesso", "Venda cancelada e estoque estornado.");
+      // Atualiza a lista de vendas removendo a venda cancelada
+      setVendas(vendasAtuais => vendasAtuais.filter(venda => venda.id !== vendaId));
+      // Ou, para garantir consistência total com o banco de dados:
+      // handleRefresh();
+    } catch (error: any) {
+      console.error("ListarVendasScreen: Erro ao deletar venda:", JSON.stringify(error.response?.data || error.message));
+      const errorMessage = error.response?.data?.erro || "Não foi possível cancelar a venda.";
+      Alert.alert("Erro", errorMessage);
+    } finally {
+      setIsDeleting(null);
+    }
   };
 
   const formatarData = (dataISO: string) => {
+    // ... (função formatarData permanece a mesma)
     if (!dataISO) return 'Data indisponível';
     try {
       return new Date(dataISO).toLocaleDateString('pt-BR', {
@@ -163,6 +190,7 @@ export default function ListarVendasScreen() {
   };
 
   const renderFooter = (): React.ReactElement | null => {
+    // ... (função renderFooter permanece a mesma)
     if (isLoadingMore) {
       return <View style={{ paddingVertical: 20 }}><ActivityIndicator size="large" color="#323588" /></View>;
     }
@@ -191,6 +219,21 @@ export default function ListarVendasScreen() {
       ))}
       {item.itens.length > 3 && <Text style={listarVendasStyles.itemDetailText}>  ...e mais {item.itens.length - 3} item(ns)</Text>}
       <Text style={listarVendasStyles.totalSale}>Total: R$ {item.totalVenda.toFixed(2)}</Text>
+      
+      {/* ADICIONADO: Botão de Cancelar Venda */}
+      <View style={listarVendasStyles.actionsContainer}>
+        <TouchableOpacity
+          style={listarVendasStyles.cancelSaleButton}
+          onPress={() => confirmarDelecao(item.id)}
+          disabled={isDeleting === item.id}
+        >
+          {isDeleting === item.id ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={listarVendasStyles.cancelSaleButtonText}>Cancelar Venda</Text>
+          )}
+        </TouchableOpacity>
+      </View>
     </View>
   );
   
@@ -206,6 +249,7 @@ export default function ListarVendasScreen() {
           <Text style={listarVendasStyles.loadingText}>Carregando histórico...</Text>
         </View>
       ) : showErrorScreen ? (
+        // ... (lógica de erro permanece a mesma)
         <View style={listarVendasStyles.centered}>
           <Text style={listarVendasStyles.errorText}>{error}</Text>
           <TouchableOpacity style={listarVendasStyles.retryButton} onPress={handleRefresh}>

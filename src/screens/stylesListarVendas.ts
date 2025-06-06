@@ -98,5 +98,25 @@ export const styles = StyleSheet.create({
     color: '#777777',
     textAlign: 'center',
     marginTop: 20,
-  }
+  },
+  // ADICIONE OS ESTILOS ABAIXO
+  actionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end', // Alinha o botão à direita
+    marginTop: 10,
+  },
+  cancelSaleButton: {
+    backgroundColor: '#FF6347', // Cor "Tomato", para ação destrutiva
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 5,
+    minHeight: 36, // Altura mínima para o ActivityIndicator
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelSaleButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
 });
