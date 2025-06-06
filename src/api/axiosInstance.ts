@@ -9,7 +9,9 @@ export const setGlobalLogoutHandler = (logoutHandler: () => void) => {
   globalLogoutHandler = logoutHandler;
 };
 
-const API_BASE_URL = 'http://192.168.1.5:8080';
+const API_BASE_URL = 'http://192.168.1.5:8080'
+
+
 
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
