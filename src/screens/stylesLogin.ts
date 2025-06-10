@@ -1,57 +1,87 @@
-import { StyleSheet } from "react-native";
+import { StyleSheet } from 'react-native';
+import { theme } from '../global/themes'; // Importando o tema
 
-export const styles = StyleSheet.create({
+export const stylesLogin = StyleSheet.create({
+  // --- Contêiner Principal ---
   container: {
     flex: 1,
-    backgroundColor: '#f7f7f7',
-    alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    padding: theme.spacing.lg,
+    backgroundColor: theme.colors.background,
   },
+
+  // --- Logo e Título ---
   logo: {
-    width: 100,
-    height: 100,
-    marginBottom: 20,
+    width: 150,
+    height: 150,
+    alignSelf: 'center',
+    marginBottom: theme.spacing.md,
   },
   title: {
-    fontSize: 28,
+    fontSize: theme.fontSizes.xl,
     fontWeight: 'bold',
-    color: '#8B0000', // Exemplo, use sua cor #323588 se preferir
-    marginBottom: 30,
+    color: theme.colors.text,
+    textAlign: 'center',
+    marginBottom: theme.spacing.lg,
   },
+
+  // --- Inputs ---
   input: {
-    width: '100%',
-    backgroundColor: '#e0e0e0',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 15,
-    fontSize: 16,
+    backgroundColor: theme.colors.surface,
+    height: 50,
+    borderColor: theme.colors.placeholder,
+    borderWidth: 1,
+    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    fontSize: theme.fontSizes.md,
+    color: theme.colors.text,
   },
+
+  // --- Botão Principal ---
   button: {
-    backgroundColor: '#5ac6f0', // Sua cor #5DBEDD
-    paddingVertical: 12,
-    paddingHorizontal: 50,
-    borderRadius: 20,
-    marginBottom: 10,
-    alignItems: 'center', // Para centralizar o ActivityIndicator
-    justifyContent: 'center', // Para centralizar o ActivityIndicator
-    minHeight: 48, // Altura mínima para o botão
-  },
-  buttonDisabled: {
-    backgroundColor: '#a0d8ef',
+    backgroundColor: theme.colors.primary,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: theme.borderRadius.md,
+    marginTop: theme.spacing.sm,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 18,
+    color: theme.colors.surface,
+    fontSize: theme.fontSizes.md,
+    fontWeight: 'bold',
   },
-  recoverButton: {
-    backgroundColor: '#f7b5b5', // Sua cor #F8E0E0
-    paddingVertical: 10,
-    paddingHorizontal: 30,
-    borderRadius: 20,
+  // Estilo para quando o botão estiver desabilitado (carregando)
+  buttonDisabled: {
+    backgroundColor: theme.colors.primary,
+    opacity: 0.7,
   },
-  recoverText: {
-    color: '#fff',
-    fontSize: 16,
+
+  // --- Links ---
+  linksContainer: {
+    marginTop: theme.spacing.lg,
+    alignItems: 'center',
+  },
+  linkText: {
+    color: theme.colors.primary,
+    fontSize: theme.fontSizes.sm,
+    marginTop: theme.spacing.md,
+  },
+  
+  // --- Mensagem de Erro (integrada dos seus estilos locais) ---
+  errorContainer: {
+    width: '100%',
+    padding: theme.spacing.md,
+    backgroundColor: '#F8D7DA',
+    borderColor: '#F5C6CB',
+    borderWidth: 1,
+    borderRadius: theme.borderRadius.md,
+    marginBottom: theme.spacing.md,
+  },
+  errorText: {
+    color: '#721C24',
+    fontSize: theme.fontSizes.sm,
+    textAlign: 'center',
   },
 });

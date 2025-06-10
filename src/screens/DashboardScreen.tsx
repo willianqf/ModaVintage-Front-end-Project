@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App'; // Ajuste o caminho se o App.tsx estiver em outro lugar
 import { MaterialCommunityIcons } from '@expo/vector-icons'; // Importar ícones
+import { theme } from '../global/themes';
 
 interface DashboardScreenProps {
   onLogout: () => void;
@@ -68,18 +69,19 @@ export default function DashboardScreen({ onLogout }: DashboardScreenProps) {
             }}
           >
             <MaterialCommunityIcons 
-                name={item.iconName as any} // O 'as any' é devido ao tipo string do iconName
-                size={28} // Tamanho do ícone
-                color="#FFFFFF" // Cor do ícone
-                style={styles.menuIcon} 
+              name={item.iconName as any}
+              size={28}
+              color={theme.colors.primary} // <--- Para esta nova cor
+              style={styles.menuIcon} 
             />
             <Text style={styles.menuButtonText}>{item.title}</Text>
           </TouchableOpacity>
         ))}
 
-        <View style={styles.logoutButtonContainer}>
-          <Button title="Logout" onPress={handleLogout} color="#8B0000" />
-        </View>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <MaterialCommunityIcons name="logout" size={22} color={theme.colors.surface} />
+          <Text style={styles.logoutButtonText}>Logout</Text>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -88,59 +90,81 @@ export default function DashboardScreen({ onLogout }: DashboardScreenProps) {
 const styles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,
-    justifyContent: 'center', // Centraliza o conteúdo se for menor que a tela
   },
   container: {
-    flex: 1, // Garante que o container ocupe o espaço do ScrollView se o conteúdo for grande
+    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center', // Centraliza o bloco de conteúdo verticalmente
-    paddingVertical: 30, // Espaçamento vertical
-    paddingHorizontal: 10,
-    backgroundColor: '#F3F3F3',
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: theme.colors.background, // Cor de fundo do tema
   },
   headerPlaceholder: {
-    flexDirection: 'row', // Se tiver texto ao lado do logo
     alignItems: 'center',
-    marginBottom: 20, 
+    marginBottom: theme.spacing.md,
   },
   headerLogo: {
-    width: 100, // Ajuste conforme o tamanho desejado para o logo no header
-    height: 100, // Ajuste
-    // marginBottom: 20, // Se não houver texto ao lado, pode usar marginBottom aqui
+    width: 90,
+    height: 90,
   },
-  // headerTitleText: { // Se você adicionar o texto "Moda Vintage" ao lado do logo
-  //   fontSize: 22,
-  //   fontWeight: 'bold',
-  //   color: '#323588',
-  //   marginLeft: 10,
-  // },
   welcomeTitle: {
-    fontSize: 28,
+    fontSize: theme.fontSizes.xl,
     fontWeight: 'bold',
-    color: '#323588', // Cor do Figma
-    marginBottom: 25,
+    color: theme.colors.text, // Cor de texto do tema
+    marginBottom: theme.spacing.lg,
   },
+  // Estilo principal do botão, agora como um "card"
   menuButton: {
-    backgroundColor: '#5DBEDD', // Cor do Figma
-    paddingVertical: 15, // Aumentado um pouco para mais altura
-    paddingHorizontal: 15, // Ajustado
-    borderRadius: 10,
-    marginBottom: 15, // Aumentado o espaçamento entre botões
-    width: '90%', // Aumentado para ocupar mais a largura
+    backgroundColor: theme.colors.surface, // Fundo branco para o card
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    marginBottom: theme.spacing.md,
+    width: '100%', // Ocupa toda a largura do container
     flexDirection: 'row',
-    alignItems: 'center', // Alinha ícone e texto verticalmente
+    alignItems: 'center',
+    // Sombra
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
   },
   menuIcon: {
-    marginRight: 15, // Espaço entre o ícone e o texto
+    marginRight: theme.spacing.md, // Espaçamento do tema
   },
+  // Texto do botão agora com cor escura para ser legível no fundo branco
   menuButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
+    color: theme.colors.text, // Cor do texto principal do tema
+    fontSize: theme.fontSizes.md,
     fontWeight: 'bold',
-    flex: 1, // Permite que o texto ocupe o espaço e quebra linha se necessário
+    flex: 1,
   },
   logoutButtonContainer: {
-    marginTop: 20, // Espaço acima do botão de logout
-    width: '90%', // Consistente com os botões de menu
-  }
+    marginTop: theme.spacing.md,
+    width: '100%',
+  },
+   logoutButton: {
+  backgroundColor: theme.colors.error, // Cor de erro/perigo do seu tema
+  paddingVertical: 12,
+  paddingHorizontal: 20,
+  borderRadius: theme.borderRadius.md, // Mesma borda dos outros cards
+  width: '100%',
+  marginTop: theme.spacing.md,
+  flexDirection: 'row', // Para alinhar ícone e texto
+  alignItems: 'center',
+  justifyContent: 'center',
+  // Sombra
+  elevation: 3,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.2,
+  shadowRadius: 1.41,
+},
+logoutButtonText: {
+  color: theme.colors.surface, // Cor branca para o texto
+  fontSize: theme.fontSizes.md,
+  fontWeight: 'bold',
+  marginLeft: theme.spacing.sm, // Espaço entre o ícone e o texto
+},
 });
