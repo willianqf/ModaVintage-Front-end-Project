@@ -1,9 +1,8 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, FlatList, ActivityIndicator, Alert, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { styles } from './stylesListarVendas';
 import { useFocusEffect } from '@react-navigation/native';
 import axiosInstance from '../api/axiosInstance';
-import axios from 'axios';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../global/themes';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
@@ -32,6 +31,8 @@ export default function ListarVendasScreen() {
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const [datePickerTarget, setDatePickerTarget] = useState<'inicio' | 'fim' | null>(null);
   const [clienteModalVisible, setClienteModalVisible] = useState(false);
+  // ===== CORREÇÃO APLICADA: Inicializando com um array vazio =====
+  // Isso garante que `listaClientes.filter` nunca falhe, mesmo antes da API retornar.
   const [listaClientes, setListaClientes] = useState<Cliente[]>([]);
   const [searchTermCliente, setSearchTermCliente] = useState('');
 
@@ -41,97 +42,98 @@ export default function ListarVendasScreen() {
   const isFetchingRef = useRef(false);
   const activeFiltersRef = useRef<ActiveFilters>({ cliente: null, dataInicio: null, dataFim: null });
 
-  // ===== CORREÇÃO: Removido o useCallback que causava os bugs de filtro =====
   const fetchVendas = async (pageToFetch: number, isNewSearchOrRefresh: boolean) => {
-    if (isFetchingRef.current && !isNewSearchOrRefresh) return;
-    if (!isNewSearchOrRefresh && !hasMoreRef.current) { setIsLoadingMore(false); return; }
-  
-    isFetchingRef.current = true;
-    if (isNewSearchOrRefresh) setIsLoading(true); else setIsLoadingMore(true);
-    setError(null);
-  
-    try {
-      let response;
-      const { cliente, dataInicio, dataFim } = activeFiltersRef.current;
-      const isFiltered = cliente || (dataInicio && dataFim);
-      
-      if (isNewSearchOrRefresh) {
-        setVendas([]);
-      }
-  
-      if (isFiltered) {
-        hasMoreRef.current = false; // Filtros não usam paginação
-        currentPageRef.current = 0;
+    if (isFetchingRef.current) return;
+    if (!isNewSearchOrRefresh && !hasMoreRef.current) {
+        setIsLoadingMore(false);
+        return;
+    }
 
-        if (cliente) {
-          response = await axiosInstance.get<Venda[]>(`/vendas/cliente/${cliente.id}`);
-        } else if (dataInicio && dataFim) {
-          const params = { dataInicio: dataInicio.toISOString(), dataFim: dataFim.toISOString() };
-          response = await axiosInstance.get<Venda[]>('/vendas/data', { params });
+    isFetchingRef.current = true;
+    if (isNewSearchOrRefresh) {
+        setIsLoading(true);
+    } else {
+        setIsLoadingMore(true);
+    }
+    setError(null);
+
+    try {
+        const url = '/vendas'; 
+        const params: any = {
+            page: pageToFetch,
+            size: PAGE_SIZE,
+            sort: 'dataVenda,desc'
+        };
+
+        const currentFilters = activeFiltersRef.current;
+        if (currentFilters.cliente) {
+            params.nomeCliente = currentFilters.cliente.nome;
+        } else if (currentFilters.dataInicio && currentFilters.dataFim) {
+            params.dataInicio = currentFilters.dataInicio.toISOString().split('T')[0];
+            params.dataFim = currentFilters.dataFim.toISOString().split('T')[0];
         }
+
+        const response = await axiosInstance.get<PaginatedResponse<Venda>>(url, { params });
+        const paginatedData = response.data;
         
-        if (response) {
-            setVendas(response.data);
-        }
-      } else {
-        const params = { page: pageToFetch, size: PAGE_SIZE, sort: 'dataVenda,desc' };
-        const paginatedResponse = await axiosInstance.get<PaginatedResponse<Venda>>('/vendas', { params });
-        setVendas(prev => (isNewSearchOrRefresh || pageToFetch === 0) ? paginatedResponse.data.content : [...prev, ...paginatedResponse.data.content]);
-        hasMoreRef.current = !paginatedResponse.data.last;
-        currentPageRef.current = paginatedResponse.data.number;
-      }
+        setVendas(prev => isNewSearchOrRefresh ? paginatedData.content : [...prev, ...paginatedData.content]);
+        hasMoreRef.current = !paginatedData.last;
+        currentPageRef.current = paginatedData.number;
+
     } catch (err: any) {
-      setError("Não foi possível carregar as vendas.");
+        console.error("Erro ao buscar vendas:", err.response?.data || err.message);
+        setError(err.response?.data?.message || "Não foi possível carregar as vendas.");
     } finally {
-      setIsLoading(false); 
-      setIsLoadingMore(false); 
-      isFetchingRef.current = false;
+        setIsLoading(false); 
+        setIsLoadingMore(false); 
+        isFetchingRef.current = false;
     }
   };
 
   const fetchClientesParaModal = async () => {
-    if (listaClientes.length > 0) return;
+    // Não precisa mais da verificação de tamanho, pois a busca é feita no foco da tela.
     try {
         const response = await axiosInstance.get<Cliente[]>('/clientes/todos');
-        setListaClientes(response.data);
+        setListaClientes(response.data || []); // Garante que, mesmo com resposta nula, seja um array
     } catch (error) {
         Alert.alert("Erro", "Não foi possível carregar a lista de clientes para o filtro.");
+        setListaClientes([]); // Em caso de erro, define como array vazio para não quebrar a UI
     }
   }
 
-  // ===== CORREÇÃO: Lógica de foco na tela simplificada =====
   useFocusEffect(useCallback(() => {
-    handleClearFilters(true); // Sempre limpa filtros e busca a lista inicial
+    handleClearFilters(true);
     fetchClientesParaModal();
   }, []));
 
-  // ===== CORREÇÃO: Lógica para limpar filtros simplificada =====
   const handleClearFilters = (fetch = true) => {
-    const hadFilters = activeFiltersRef.current.cliente || activeFiltersRef.current.dataInicio;
     setFilterCliente(null);
     setFilterDataInicio(null);
     setFilterDataFim(null);
-    activeFiltersRef.current = {cliente: null, dataInicio: null, dataFim: null};
+    activeFiltersRef.current = { cliente: null, dataInicio: null, dataFim: null };
     if (fetch) {
-      // Força a busca da página 0 sem filtros
       fetchVendas(0, true);
     }
   };
 
   const handleApplyFilters = () => {
     if (filterDataInicio && filterDataFim && filterDataInicio > filterDataFim) {
-      Alert.alert("Erro de Data", "A data de início não pode ser posterior à data de fim.");
-      return;
-    }
-    if (!filterCliente && !filterDataInicio && !filterDataFim) {
-      Alert.alert("Filtro Vazio", "Selecione um cliente ou um período de datas para aplicar o filtro.");
-      return;
-    }
-    if ((filterDataInicio && !filterDataFim) || (!filterDataInicio && filterDataFim)) {
-        Alert.alert("Período Incompleto", "Por favor, selecione tanto a data de início quanto a de fim para filtrar por período.");
+        Alert.alert("Erro de Data", "A data de início não pode ser posterior à data de fim.");
         return;
     }
-
+    if (filterCliente && (filterDataInicio || filterDataFim)) {
+        Alert.alert("Filtro Inválido", "Filtre por cliente OU por período, não ambos.");
+        return;
+    }
+    if ((filterDataInicio && !filterDataFim) || (!filterDataInicio && filterDataFim)) {
+        Alert.alert("Período Incompleto", "Selecione data de início e fim.");
+        return;
+    }
+    if (!filterCliente && !filterDataInicio && !filterDataFim) {
+      handleClearFilters(true);
+      return;
+    }
+    
     activeFiltersRef.current = { cliente: filterCliente, dataInicio: filterDataInicio, dataFim: filterDataFim };
     fetchVendas(0, true);
   };
@@ -148,7 +150,7 @@ export default function ListarVendasScreen() {
     setIsDeleting(vendaId);
     try {
       await axiosInstance.delete(`/vendas/${vendaId}`);
-      setVendas(vendasAtuais => vendasAtuais.filter(venda => venda.id !== vendaId));
+      fetchVendas(0, true);
     } catch (error: any) {
       Alert.alert("Erro", error.response?.data?.erro || "Não foi possível cancelar a venda.");
     } finally {
@@ -173,7 +175,7 @@ export default function ListarVendasScreen() {
 
   const renderFiltros = () => (
     <View style={styles.filtersContainer}>
-        <TouchableOpacity style={[styles.filterButton, filterCliente && styles.filterButtonActive]} onPress={() => { fetchClientesParaModal(); setClienteModalVisible(true); }}>
+        <TouchableOpacity style={[styles.filterButton, filterCliente && styles.filterButtonActive]} onPress={() => setClienteModalVisible(true)}>
             <MaterialCommunityIcons name="account-outline" size={20} color={theme.colors.primary} /><Text style={styles.filterButtonText} numberOfLines={1}>{filterCliente ? filterCliente.nome : 'Filtrar por Cliente'}</Text>
         </TouchableOpacity>
         <View style={[styles.filterRow, {marginTop: theme.spacing.sm}]}>
@@ -201,7 +203,7 @@ export default function ListarVendasScreen() {
         ListHeaderComponent={renderFiltros}
         onRefresh={() => handleClearFilters(true)}
         refreshing={isLoading}
-        onEndReached={() => {if (!activeFiltersRef.current.cliente && !activeFiltersRef.current.dataInicio) { fetchVendas(currentPageRef.current + 1, false); }}}
+        onEndReached={() => {if (hasMoreRef.current) { fetchVendas(currentPageRef.current + 1, false); }}}
         onEndReachedThreshold={0.5}
         ListFooterComponent={isLoadingMore ? <ActivityIndicator style={{ margin: 20 }} color={theme.colors.primary}/> : null}
         ListEmptyComponent={!isLoading ? <View style={styles.centered}><Text style={styles.emptyDataText}>{error || "Nenhuma venda encontrada."}</Text></View> : null}

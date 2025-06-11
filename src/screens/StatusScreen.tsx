@@ -1,25 +1,27 @@
-import React, { useState, useCallback, useEffect } from 'react'; // Adicionado useEffect para uma possível melhoria futura, mas não usado nesta correção.
-import { View, Text, ScrollView, ActivityIndicator, Dimensions, Alert } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, ScrollView, ActivityIndicator, Dimensions, StyleSheet } from 'react-native';
 import { BarChart } from 'react-native-chart-kit';
 import { useFocusEffect } from '@react-navigation/native';
-import { styles, chartConfig as originalChartConfig } from './stylesStatus';
+import { styles as originalStyles, chartConfig as originalChartConfig } from './stylesStatus';
 
 import axiosInstance from '../api/axiosInstance';
-import axios from 'axios'; // Para usar axios.isAxiosError
+import axios from 'axios';
 
 const screenWidth = Dimensions.get("window").width;
 
-// --- Interfaces (mantidas) ---
+// ===== INTERFACE CORRIGIDA PARA CORRESPONDER À API =====
+// Atualizada para usar os nomes dos campos que a API realmente envia.
+interface RelatorioLucratividadeData {
+  periodo: string;
+  totalReceita: number; // Corresponde à resposta da API
+  cmv?: number;         // CMV é opcional, pois não vem da API
+  totalLucroBruto: number; // Corresponde à resposta da API
+}
+// --- Outras Interfaces ---
 interface RelatorioMensalDTO {
   mesAno: string;
   valor?: number;
   totalVendido?: number;
-}
-interface RelatorioLucratividadeData {
-  periodo: string;
-  totalReceita: number;
-  totalCmv: number;
-  totalLucroBruto: number;
 }
 interface ChartDataset {
   data: number[];
@@ -59,6 +61,28 @@ const chartConfigWithYFormat = {
   segments: 5,
 };
 
+const styles = StyleSheet.create({
+    ...originalStyles,
+    debugContainer: {
+        padding: 10,
+        backgroundColor: '#f0f0f0',
+        marginHorizontal: 20,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#ccc',
+    },
+    debugTitle: {
+        fontWeight: 'bold',
+        marginBottom: 5,
+        color: '#333',
+    },
+    debugText: {
+        fontFamily: 'monospace',
+        fontSize: 12,
+        color: '#333',
+    }
+});
+
 export default function StatusScreen() {
   const [vendasChartData, setVendasChartData] = useState<ChartData | null>(null);
   const [entradaSaidaChartData, setEntradaSaidaChartData] = useState<ChartData | null>(null);
@@ -71,21 +95,17 @@ export default function StatusScreen() {
   const [errorGeral, setErrorGeral] = useState<string | null>(null);
   const [errorLucratividade, setErrorLucratividade] = useState<string | null>(null);
 
-  // CORREÇÃO: Removidas as dependências que causam o loop de 'fetchDadosGerais'
+  const [rawLucroData, setRawLucroData] = useState<any>(null);
+
   const fetchDadosGerais = useCallback(async () => {
-    console.log("StatusScreen: fetchDadosGerais INICIADO");
     setIsLoadingVendas(true);
     setIsLoadingEntradaSaida(true);
-    setErrorGeral(null); // Limpa erro anterior ao tentar buscar novamente
-
+    setErrorGeral(null);
     let fetchedVendasData: RelatorioMensalDTO[] = [];
     let fetchedEntradasData: RelatorioMensalDTO[] = [];
-    let ocorreuErroLocal = false; // Usar variável local para não depender do estado errorGeral no mesmo ciclo
-
     try {
       const vendasRes = await axiosInstance.get<RelatorioMensalDTO[]>('/vendas/relatorio/total-mensal');
       fetchedVendasData = vendasRes.data || [];
-      console.log("STATUS_SCREEN - Dados Brutos de Vendas:", JSON.stringify(fetchedVendasData, null, 2));
       if (fetchedVendasData.length > 0) {
         const labels = fetchedVendasData.map(item => formatMesAnoParaLabel(item.mesAno));
         const data = fetchedVendasData.map(item => parseFloat((item.totalVendido || 0).toFixed(2)));
@@ -93,41 +113,23 @@ export default function StatusScreen() {
       } else {
         setVendasChartData(null);
       }
-    } catch (err: any) {
-      console.error("StatusScreen: Erro ao buscar dados de vendas:", JSON.stringify(err.response?.data || err.message));
-      ocorreuErroLocal = true;
+    } catch (err) {
+      setErrorGeral("Falha ao carregar dados de vendas.");
       setVendasChartData(null);
-      if (axios.isAxiosError(err) && err.response?.status !== 401) {
-        setErrorGeral(err.response?.data?.erro || err.response?.data?.message || "Falha ao carregar dados de vendas.");
-      } else if (!axios.isAxiosError(err)) {
-        setErrorGeral("Falha ao carregar dados de vendas.");
-      }
     } finally {
       setIsLoadingVendas(false);
     }
-
     try {
       const entradasRes = await axiosInstance.get<RelatorioMensalDTO[]>('/produtos/relatorio/valor-entrada-estoque-mensal');
       fetchedEntradasData = entradasRes.data || [];
-      console.log("STATUS_SCREEN - Dados Brutos de Entrada:", JSON.stringify(fetchedEntradasData, null, 2));
-    } catch (err: any) {
-      console.error("StatusScreen: Erro ao buscar dados de entrada de estoque:", JSON.stringify(err.response?.data || err.message));
-      ocorreuErroLocal = true;
-      // Atualiza errorGeral apenas se ainda não houver um erro mais específico de vendas
-      if (axios.isAxiosError(err) && err.response?.status !== 401) {
-        if (!errorGeral) setErrorGeral(err.response?.data?.erro || err.response?.data?.message || "Falha ao carregar dados de entrada de estoque.");
-      } else if (!axios.isAxiosError(err)) {
-        if (!errorGeral) setErrorGeral("Falha ao carregar dados de entrada de estoque.");
-      }
+    } catch (err) {
+      if (!errorGeral) setErrorGeral("Falha ao carregar dados de entrada.");
     } finally {
       setIsLoadingEntradaSaida(false);
     }
-
-    // Processamento para o gráfico de Entrada x Saída
     const allPeriodsSet = new Set<string>();
     fetchedVendasData.forEach(item => allPeriodsSet.add(item.mesAno));
     fetchedEntradasData.forEach(item => allPeriodsSet.add(item.mesAno));
-
     if (allPeriodsSet.size > 0) {
       const sortedPeriods = Array.from(allPeriodsSet).sort((a, b) => {
         const [aYear, aMonth] = a.split('-').map(Number);
@@ -149,25 +151,33 @@ export default function StatusScreen() {
     } else {
       setEntradaSaidaChartData(null);
     }
-
-    if (ocorreuErroLocal && !errorGeral) { // Se um erro local ocorreu mas não foi setado em errorGeral (ex: erro apenas em entradas)
-        setErrorGeral("Falha ao carregar alguns dados dos relatórios gerais.");
-    }
-    console.log("StatusScreen: fetchDadosGerais FINALIZADO");
-  }, []); // Removidas as dependências problemáticas. Ele agora só é criado uma vez.
+  }, []);
 
   const fetchLucratividadeData = useCallback(async () => {
-    console.log("StatusScreen: fetchLucratividadeData INICIADO");
     setIsLoadingLucratividade(true);
-    setErrorLucratividade(null); // Limpa erro anterior
+    setErrorLucratividade(null);
+    setRawLucroData(null);
     try {
       const response = await axiosInstance.get<RelatorioLucratividadeData[]>('/vendas/relatorio/lucratividade-mensal');
-      console.log("STATUS_SCREEN - Dados Brutos de Lucratividade:", JSON.stringify(response.data, null, 2));
+      setRawLucroData(response.data);
+
       if (response.data && response.data.length > 0) {
         const labels = response.data.map(item => formatMesAnoParaLabel(item.periodo));
-        const receitas = response.data.map(item => parseFloat(item.totalReceita.toFixed(2)));
-        const cmvs = response.data.map(item => parseFloat(item.totalCmv.toFixed(2)));
-        const lucros = response.data.map(item => parseFloat(item.totalLucroBruto.toFixed(2)));
+        
+        // ===== PROCESSAMENTO CORRIGIDO E ROBUSTO =====
+        const receitas = response.data.map(item => parseFloat((item.totalReceita || 0).toFixed(2)));
+        const lucros = response.data.map(item => parseFloat((item.totalLucroBruto || 0).toFixed(2)));
+        // Calcula o CMV se ele não vier da API
+        const cmvs = response.data.map(item => {
+            if (item.cmv !== undefined) {
+                return parseFloat(item.cmv.toFixed(2));
+            }
+            // Fallback: calcula o CMV a partir da receita e lucro
+            const receita = item.totalReceita || 0;
+            const lucro = item.totalLucroBruto || 0;
+            return parseFloat((receita - lucro).toFixed(2));
+        });
+        
         const datasets: ChartDataset[] = [
           { data: receitas, color: (opacity = 1) => `rgba(54, 162, 235, ${opacity})`, legend: "Receita" },
           { data: cmvs, color: (opacity = 1) => `rgba(255, 99, 132, ${opacity})`, legend: "CMV" },
@@ -178,51 +188,53 @@ export default function StatusScreen() {
         setLucratividadeChartData(null);
       }
     } catch (err: any) {
-      console.error("StatusScreen: Erro ao buscar dados de lucratividade:", JSON.stringify(err.response?.data || err.message));
-      if (axios.isAxiosError(err) && err.response?.status !== 401) {
-        setErrorLucratividade(err.response?.data?.erro || err.response?.data?.message || "Não foi possível carregar os dados de lucratividade.");
-      } else if (!axios.isAxiosError(err)) {
-        setErrorLucratividade("Não foi possível carregar os dados de lucratividade.");
+      if (axios.isAxiosError(err)) {
+          const errorMsg = err.response?.data?.erro || err.response?.data?.message || "Não foi possível carregar os dados de lucratividade.";
+          setErrorLucratividade(errorMsg);
+          setRawLucroData({ error: errorMsg, status: err.response?.status, data: err.response?.data });
+      } else {
+          setErrorLucratividade("Ocorreu um erro inesperado.");
+          setRawLucroData({ error: "Erro não-axios", message: (err as Error).message });
       }
       setLucratividadeChartData(null);
     } finally {
       setIsLoadingLucratividade(false);
     }
-    console.log("StatusScreen: fetchLucratividadeData FINALIZADO");
-  }, []); // Este já estava correto com dependências vazias.
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      console.log("StatusScreen: TELA EM FOCO - Chamando fetches...");
-      // Chamamos as funções que agora têm referências estáveis
       fetchDadosGerais();
       fetchLucratividadeData();
-
-      // Função de limpeza opcional (não estritamente necessária aqui,
-      // mas boa prática se houvesse listeners ou subscriptions)
-      return () => {
-        console.log("StatusScreen: TELA PERDEU FOCO");
-      };
-    }, [fetchDadosGerais, fetchLucratividadeData]) // Agora as dependências são estáveis
+    }, [fetchDadosGerais, fetchLucratividadeData])
   );
 
   const renderChart = (title: string, chartDataInput: ChartData | null, isLoadingFlag: boolean, specificError: string | null) => {
     if (isLoadingFlag) {
       return <View style={styles.centeredMessage}><ActivityIndicator size="large" color={originalChartConfig.color(1)} /><Text style={styles.loadingText}>Carregando {title.toLowerCase()}...</Text></View>;
     }
-    // Exibe o erro específico do gráfico se houver
+    
     const errorToDisplay = title === "Lucratividade Mensal" ? errorLucratividade : errorGeral;
     if (errorToDisplay) {
       return <View style={styles.centeredMessage}><Text style={styles.errorText}>{errorToDisplay}</Text></View>;
     }
-    // Se não há erro específico mas há um erro geral e o gráfico não é de lucratividade
-    if (!errorToDisplay && errorGeral && title !== "Lucratividade Mensal"){
-        return <View style={styles.centeredMessage}><Text style={styles.errorText}>{errorGeral}</Text></View>;
-    }
-
-    if (!chartDataInput || !chartDataInput.labels || chartDataInput.labels.length === 0 ||
+    
+    const isDataEmpty = !chartDataInput || !chartDataInput.labels || chartDataInput.labels.length === 0 ||
       !chartDataInput.datasets || chartDataInput.datasets.length === 0 ||
-      chartDataInput.datasets.every(ds => !ds.data || ds.data.length === 0 || ds.data.every(val => val === 0))) {
+      chartDataInput.datasets.every(ds => !ds.data || ds.data.length === 0 || ds.data.every(val => val === 0));
+
+    if (isDataEmpty) {
+        if (title === "Lucratividade Mensal" && rawLucroData) {
+            return (
+                <View style={styles.chartContainer}>
+                    <Text style={styles.chartTitle}>{title}</Text>
+                    <View style={styles.debugContainer}>
+                        <Text style={styles.debugTitle}>Sem dados para exibir o gráfico. Resposta da API:</Text>
+                        <Text style={styles.debugText} selectable={true}>{JSON.stringify(rawLucroData, null, 2)}</Text>
+                    </View>
+                </View>
+            );
+        }
       return <View style={styles.centeredMessage}><Text style={styles.emptyDataText}>Sem dados para exibir para {title}.</Text></View>;
     }
 
@@ -248,7 +260,6 @@ export default function StatusScreen() {
     <ScrollView contentContainerStyle={styles.scrollViewContainer}>
       <View style={styles.container}>
         <Text style={styles.headerTitle}>Status e Relatórios</Text>
-        {/* Ajustado o specificError passado para renderChart */}
         {renderChart("Vendas Mensais (Valor)", vendasChartData, isLoadingVendas, errorGeral)}
         {renderChart("Entrada x Saída Mensal (Valor)", entradaSaidaChartData, isLoadingEntradaSaida, errorGeral)}
         {renderChart("Lucratividade Mensal", lucratividadeChartData, isLoadingLucratividade, errorLucratividade)}
