@@ -1,35 +1,52 @@
 import { StyleSheet } from 'react-native';
+import { theme } from '../global/themes';
 
-// stylesMercadorias.ts
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 50,
-    paddingHorizontal: 20,
-    backgroundColor: '#f3f3f3',
-    alignItems: 'center',
+    backgroundColor: theme.colors.background,
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.xl,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: theme.fontSizes.xl,
     fontWeight: 'bold',
-    color: '#323588',
-    marginBottom: 30,
-    alignSelf: 'center',
+    color: theme.colors.text,
+    textAlign: 'center',
+    marginBottom: theme.spacing.lg,
   },
-  actionButton: {
-    backgroundColor: '#5DBEDD', // Cor dos botões de ação do Figma
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginBottom: 20,
-    width: '90%',
+  card: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: theme.spacing.md,
+    // Sombra
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
-  actionButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
+  iconContainer: {
+    // Círculo com a cor primária de fundo e baixa opacidade
+    backgroundColor: `${theme.colors.primary}20`,
+    padding: theme.spacing.md,
+    borderRadius: 50,
+    marginRight: theme.spacing.md,
+  },
+  cardTextContainer: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: theme.fontSizes.lg,
     fontWeight: 'bold',
+    color: theme.colors.primary,
   },
-
+  cardSubtitle: {
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.text,
+    marginTop: theme.spacing.xs,
+  },
 });

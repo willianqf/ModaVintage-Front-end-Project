@@ -1,32 +1,50 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Alert } from 'react-native'; // Alert pode ser removido se não for mais usado
+import { View, Text, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../App';
-import { styles } from './stylesVendas';
+import { RootStackParamList } from '../navigation/types'; // Verifique o caminho
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { styles } from './stylesVendas'; // Importando os novos estilos
+import { theme } from '../global/themes';
 
-// Certifique-se de que 'VendasScreen' existe em RootStackParamList se esta tela for um destino de navegação também
-type VendasNavigationProp = NativeStackNavigationProp<RootStackParamList, 'VendasScreen'>;
+type VendasNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Vendas'>;
 
-export default function VendasScreen() {
+const VendasScreen = () => {
   const navigation = useNavigation<VendasNavigationProp>();
 
   return (
     <View style={styles.container}>
-      <Text style={styles.headerTitle}>Vendas</Text>
+      <Text style={styles.headerTitle}>Gerenciar Vendas</Text>
+
+      {/* Card para Registrar Venda */}
       <TouchableOpacity
-        style={styles.actionButton}
-        onPress={() => navigation.navigate('RegistrarVenda')}
+        style={styles.card}
+        onPress={() => navigation.navigate('RegistrarVenda')} // Funcionalidade mantida
       >
-        <Text style={styles.actionButtonText}>+ Registrar Nova Venda</Text>
+        <View style={styles.iconContainer}>
+          <MaterialCommunityIcons name="cart-plus" size={30} color={theme.colors.primary} />
+        </View>
+        <View style={styles.cardTextContainer}>
+          <Text style={styles.cardTitle}>Nova Venda</Text>
+          <Text style={styles.cardSubtitle}>Registrar uma nova venda no sistema</Text>
+        </View>
       </TouchableOpacity>
 
+      {/* Card para Listar Vendas */}
       <TouchableOpacity
-        style={styles.actionButton}
-        onPress={() => navigation.navigate('ListarVendas')} // ALTERADO AQUI
+        style={styles.card}
+        onPress={() => navigation.navigate('ListarVendas')} // Funcionalidade mantida
       >
-        <Text style={styles.actionButtonText}>Listar Vendas</Text>
+        <View style={styles.iconContainer}>
+          <MaterialCommunityIcons name="clipboard-text-search-outline" size={30} color={theme.colors.primary} />
+        </View>
+        <View style={styles.cardTextContainer}>
+          <Text style={styles.cardTitle}>Histórico de Vendas</Text>
+          <Text style={styles.cardSubtitle}>Consultar o histórico de vendas</Text>
+        </View>
       </TouchableOpacity>
     </View>
   );
-}
+};
+
+export default VendasScreen;

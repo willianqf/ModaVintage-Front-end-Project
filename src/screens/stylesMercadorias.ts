@@ -1,33 +1,52 @@
 import { StyleSheet } from 'react-native';
+import { theme } from '../global/themes';
 
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 50, // Para dar espaço para a barra de status e título
-    paddingHorizontal: 20,
-    backgroundColor: '#f3f3f3',
-    alignItems: 'center',
+    backgroundColor: theme.colors.background,
+    // A MUDANÇA ESTÁ AQUI:
+    paddingHorizontal: theme.spacing.md, // Mantém o espaçamento nas laterais
+    paddingTop: theme.spacing.xl,        // Aumenta o espaçamento no topo
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: theme.fontSizes.xl,
     fontWeight: 'bold',
-    color: '#323588',
-    marginBottom: 30,
-    alignSelf: 'center', // Centralizar título
+    color: theme.colors.text,
+    textAlign: 'center',
+    marginBottom: theme.spacing.lg,
   },
-  actionButton: {
-    backgroundColor: '#5DBEDD',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginBottom: 20,
-    width: '90%',
+  card: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md, // Padding interno do card foi reduzido um pouco para harmonia
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: theme.spacing.md,
+    // Sombra
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
-  actionButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
+  iconContainer: {
+    backgroundColor: `${theme.colors.primary}20`,
+    padding: theme.spacing.md,
+    borderRadius: 50,
+    marginRight: theme.spacing.md,
+  },
+  cardTextContainer: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: theme.fontSizes.lg,
     fontWeight: 'bold',
+    color: theme.colors.primary,
+  },
+  cardSubtitle: {
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.text,
+    marginTop: theme.spacing.xs,
   },
 });
