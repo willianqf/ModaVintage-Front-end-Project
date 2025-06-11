@@ -1,60 +1,104 @@
 import { StyleSheet } from 'react-native';
+import { theme } from '../global/themes';
 
-// Você pode copiar os estilos de stylesAdicionarMercadoria.ts e ajustar se necessário
-// Por exemplo, o título do botão pode ser "SALVAR ALTERAÇÕES"
 export const styles = StyleSheet.create({
+  // --- Layout e Cabeçalho ---
   container: {
     flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  header: {
+    backgroundColor: theme.colors.primary,
     paddingTop: 40,
-    paddingHorizontal: 20,
-    backgroundColor: '#f3f3f3',
+    paddingBottom: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#323588',
+    color: theme.colors.surface,
     textAlign: 'center',
-    marginBottom: 30,
   },
-  input: {
-    width: '100%',
-    backgroundColor: '#e0e0e0',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 15,
-    fontSize: 16,
+  scrollView: {
+    flex: 1,
   },
-  buttonContainer: {
-    marginTop: 20,
+  content: {
+    padding: theme.spacing.md,
+    paddingBottom: 40,
   },
-  button: {
-    backgroundColor: '#5DBEDD',
-    paddingVertical: 15,
-    borderRadius: 20,
-    alignItems: 'center',
-    marginBottom: 10,
-    minHeight: 48,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  cancelButton: {
-    backgroundColor: '#F8E0E0',
-    paddingVertical: 15,
-    borderRadius: 20,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    color: '#545454',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  loadingContainer: { // Para o loading de buscar produto
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  }
-  // Adicione mais estilos conforme necessário
+    backgroundColor: theme.colors.background,
+  },
+
+  // --- Grupo de Formulário (Rótulo + Input) ---
+  formGroup: {
+    marginBottom: theme.spacing.md,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.placeholder,
+    textTransform: 'uppercase',
+    marginBottom: theme.spacing.sm,
+  },
+  input: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: theme.colors.text,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+  },
+
+  // --- Botão de Imagem (Estilo Secundário) ---
+  imagePickerButton: {
+    borderStyle: 'dashed',
+    borderWidth: 2,
+    borderColor: theme.colors.placeholder,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: `${theme.colors.placeholder}10`,
+  },
+  imagePickerText: {
+    color: theme.colors.placeholder,
+    fontWeight: 'bold',
+    marginTop: theme.spacing.sm,
+  },
+  
+  // --- Botões de Ação ---
+  buttonContainer: {
+    marginTop: theme.spacing.lg,
+  },
+  button: {
+    backgroundColor: theme.colors.success,
+    paddingVertical: 15,
+    borderRadius: theme.borderRadius.md,
+    alignItems: 'center',
+    elevation: 2,
+  },
+  buttonText: {
+    color: theme.colors.surface,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  cancelButton: {
+    marginTop: theme.spacing.sm,
+    padding: 10,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: theme.colors.error,
+    fontWeight: 'bold',
+  },
 });

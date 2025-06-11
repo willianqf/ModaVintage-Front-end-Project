@@ -1,225 +1,279 @@
 import { StyleSheet } from 'react-native';
+import { theme } from '../global/themes';
 
 export const styles = StyleSheet.create({
+  // --- Layout e Cabeçalho ---
   container: {
     flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  header: {
+    backgroundColor: theme.colors.primary,
     paddingTop: 40,
-    paddingHorizontal: 20,
-    backgroundColor: '#f3f3f3',
+    paddingBottom: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#323588',
+    color: theme.colors.surface,
     textAlign: 'center',
-    marginBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#545454',
-    marginTop: 20,
-    marginBottom: 10,
+  scrollView: {
+    flex: 1,
   },
-  input: {
-    backgroundColor: '#e0e0e0',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 15,
+  content: {
+    padding: theme.spacing.md,
+  },
+
+  // --- Seções e Rótulos ---
+  formGroup: {
+    marginBottom: theme.spacing.lg,
+  },
+  label: {
     fontSize: 16,
-    width: '100%', // Adicionado para garantir largura total quando necessário
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.sm,
   },
+  
+  // --- Botões e Entradas ---
   pickerButton: {
-    backgroundColor: '#e0e0e0',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
   },
   pickerButtonText: {
+    flex: 1,
     fontSize: 16,
-    color: '#555',
+    color: theme.colors.text,
+    marginLeft: theme.spacing.sm,
   },
-  itemListaVenda: {
-    backgroundColor: '#fff',
-    paddingVertical: 10,
-    paddingHorizontal: 12, // Ajustado padding
-    marginBottom: 8,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: '#ddd',
+  pickerButtonTextPlaceholder: {
+    color: theme.colors.placeholder,
+  },
+  readOnlyInput: {
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    fontSize: 16,
+    color: theme.colors.text,
+    elevation: 2,
+  },
+
+  // --- Itens da Venda (Carrinho) ---
+  cartHeader: { // CORRIGIDO
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: theme.spacing.sm,
   },
-  itemTextoContainer: { // Novo container para textos do item, para melhor layout com botões
-    flex: 1, // Permite que o texto ocupe o espaço disponível
-    marginRight: 5, // Espaço antes dos botões
-  },
-  itemListaTexto: {
-    fontSize: 15,
-  },
-  itemSubDetalhes: { // Novo estilo para sub-detalhes como preço/subtotal
-    fontSize: 12,
-    color: 'gray',
-  },
-  itemActionsContainer: { // Novo container para botões de ação do item
+  addItemButton: { // CORRIGIDO
+    backgroundColor: `${theme.colors.primary}20`,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
     flexDirection: 'row',
     alignItems: 'center',
   },
-  itemEditarQtdButton: {
-    paddingHorizontal: 8, // Ajustado
-    paddingVertical: 6,   // Ajustado
-    backgroundColor: '#a0d8ef',
-    borderRadius: 5,
-    marginRight: 8,
-  },
-  itemEditarQtdButtonTexto: {
-    color: '#323588',
-    fontSize: 12, // Um pouco menor para caber bem
+  addItemButtonText: { // CORRIGIDO
+    color: theme.colors.primary,
     fontWeight: 'bold',
+    marginLeft: theme.spacing.xs,
   },
-  itemRemoverButton: {
-    paddingHorizontal: 8, // Ajustado para ser um botão mais claro
-    paddingVertical: 5,   // Ajustado
+  cartListContainer: { // CORRIGIDO
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
   },
-  itemRemoverTexto: {
-    color: 'red',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  totalText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'right',
-    marginTop: 15,
-    marginBottom: 20,
-    color: '#323588',
-  },
-  button: {
-    backgroundColor: '#5DBEDD',
-    paddingVertical: 15,
-    borderRadius: 20,
+  cartItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
-    minHeight: 48,
+    padding: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.background,
   },
-  buttonText: {
-    color: '#FFFFFF',
+  itemIconContainer: {
+    width: 45,
+    height: 45,
+    backgroundColor: `${theme.colors.primary}20`,
+    borderRadius: theme.borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: theme.spacing.md,
+  },
+  itemInfo: {
+    flex: 1,
+  },
+  itemName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  itemDetails: {
+    fontSize: 14,
+    color: theme.colors.placeholder,
+  },
+  itemTotal: { // CORRIGIDO
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+  },
+  itemActions: {
+    flexDirection: 'row',
+    marginLeft: theme.spacing.sm,
+  },
+  iconButton: {
+    padding: 5,
+    marginLeft: 5,
+  },
+  emptyCart: {
+    padding: theme.spacing.xl,
+    alignItems: 'center',
+  },
+  emptyCartText: {
+    marginTop: theme.spacing.sm,
+    fontSize: 16,
+    color: theme.colors.placeholder,
+  },
+  
+  // --- Rodapé ---
+  footer: {
+    padding: theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.background,
+    backgroundColor: theme.colors.surface,
+    elevation: 8,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  totalLabel: {
     fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+  },
+  totalValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: theme.colors.primary,
+  },
+  confirmButton: {
+    backgroundColor: theme.colors.success,
+    paddingVertical: 15,
+    borderRadius: theme.borderRadius.md,
+    alignItems: 'center',
+  },
+  confirmButtonText: {
+    color: theme.colors.surface,
+    fontSize: 16,
     fontWeight: 'bold',
   },
   cancelButton: {
-    backgroundColor: '#F8E0E0',
-    paddingVertical: 15,
-    borderRadius: 20,
+    marginTop: theme.spacing.sm,
+    padding: 10,
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#545454',
-    fontSize: 18,
+    color: theme.colors.error,
     fontWeight: 'bold',
   },
-  // Estilos para Modais (reutilizados e novos)
-  centeredView: {
+  
+  // --- Modal Geral ---
+  modalOverlay: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: 'rgba(0,0,0,0.5)', // Fundo semi-transparente
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalView: {
-    margin: 20,
-    backgroundColor: "white",
-    borderRadius: 20,
-    padding: 25, // Aumentado um pouco o padding
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
     width: '90%',
-    maxHeight: '85%', // Aumentado um pouco
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.lg,
+    maxHeight: '85%',
   },
   modalTitle: {
-    marginBottom: 20, // Aumentado
-    textAlign: "center",
-    fontSize: 20,
-    fontWeight: "bold",
-    color: '#323588',
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: theme.spacing.md,
   },
-  modalSearchInput: { // Estilo para input de pesquisa dentro do modal
-    height: 45,
-    width: '100%',
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    marginBottom: 15,
+  modalSearchInput: {
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.sm,
+    padding: 12,
     fontSize: 16,
+    marginBottom: theme.spacing.sm,
   },
-  modalItem: {
-    paddingVertical: 12, // Aumentado
-    paddingHorizontal: 5,
+  modalListItem: {
+    paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    width: '100%',
+    borderBottomColor: theme.colors.background,
   },
-  modalItemText: {
+  modalListItemText: {
     fontSize: 16,
-    color: '#333',
   },
-  modalButtonContainer: { // Container para botões no rodapé do modal
-    marginTop: 20,
-    width: '100%',
+  modalCloseButton: {
+    backgroundColor: `${theme.colors.error}20`,
+    marginTop: theme.spacing.md,
+    padding: 14,
+    borderRadius: theme.borderRadius.md,
+    alignItems: 'center',
   },
-  quantityInputContainer: {
+  modalCloseButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: theme.colors.error,
+  },
+
+  // --- Modal de Quantidade ---
+  quantityModalView: { // CORRIGIDO
+    width: '90%',
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.lg,
+    alignItems: 'center',
+  },
+  quantityModalTitle: { // CORRIGIDO
+    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  quantityModalSubtitle: { // CORRIGIDO
+    textAlign: 'center',
+    fontSize: 16,
+    color: theme.colors.placeholder,
+    marginBottom: 20,
+  },
+  quantityControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 15, // Aumentado
+    justifyContent: 'center',
+    marginVertical: 20,
   },
   quantityInput: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    paddingVertical: 8,
-    paddingHorizontal: 12, // Aumentado
-    width: 70, // Aumentado
+    borderBottomWidth: 2,
+    borderColor: theme.colors.primary,
+    width: 80,
     textAlign: 'center',
-    marginHorizontal: 10,
-    borderRadius: 5,
-    fontSize: 16,
-  },
-  confirmAddItemButton: {
-    backgroundColor: '#5DBEDD',
-    paddingVertical: 12, // Ajustado
-    paddingHorizontal: 20,
-    borderRadius: 8, // Ajustado
-    marginTop: 10,
-    alignItems: 'center',
-  },
-  confirmAddItemButtonText: {
-    color: 'white',
+    fontSize: 32,
     fontWeight: 'bold',
-    textAlign: 'center',
-    fontSize: 16,
+    marginHorizontal: 20,
   },
-  infoText: { // Para o modal de edição de quantidade
-    fontSize: 16, // Aumentado
-    color: '#545454',
-    marginBottom: 8, // Reduzido
-    textAlign: 'center',
-  },
-  cadastrarNovoButton: {
-  backgroundColor: '#4CAF50', // Verde, ou a cor que preferir
-  marginTop: 8, // Espaçamento do botão de selecionar cliente
-  // marginBottom: 15, // Se quiser mais espaço abaixo  
-  },
-  emptyModalText:{
-    textAlign:'center',
-    color: '#666',
-    marginTop: 20
-  }
 });

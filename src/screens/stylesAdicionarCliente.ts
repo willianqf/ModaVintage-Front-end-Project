@@ -1,52 +1,81 @@
 import { StyleSheet } from 'react-native';
+import { theme } from '../global/themes';
 
 export const styles = StyleSheet.create({
+  // --- Layout e Cabeçalho ---
   container: {
     flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  header: {
+    backgroundColor: theme.colors.primary,
     paddingTop: 40,
-    paddingHorizontal: 20,
-    backgroundColor: '#f3f3f3',
+    paddingBottom: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#323588',
+    color: theme.colors.surface,
     textAlign: 'center',
-    marginBottom: 30,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  content: {
+    padding: theme.spacing.md,
+    paddingBottom: 40,
+  },
+
+  // --- Grupo de Formulário (Rótulo + Input) ---
+  formGroup: {
+    marginBottom: theme.spacing.md,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.placeholder,
+    textTransform: 'uppercase',
+    marginBottom: theme.spacing.sm,
   },
   input: {
-    width: '100%',
-    backgroundColor: '#e0e0e0',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 15,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 14,
     fontSize: 16,
+    color: theme.colors.text,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
   },
+
+  // --- Botões de Ação ---
   buttonContainer: {
-    marginTop: 20,
+    marginTop: theme.spacing.lg,
   },
   button: {
-    backgroundColor: '#5DBEDD',
+    backgroundColor: theme.colors.success,
     paddingVertical: 15,
-    borderRadius: 20,
+    borderRadius: theme.borderRadius.md,
     alignItems: 'center',
-    marginBottom: 10,
-    minHeight: 48,
+    elevation: 2,
   },
   buttonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
+    color: theme.colors.surface,
+    fontSize: 16,
     fontWeight: 'bold',
   },
   cancelButton: {
-    backgroundColor: '#F8E0E0',
-    paddingVertical: 15,
-    borderRadius: 20,
+    marginTop: theme.spacing.sm,
+    padding: 10,
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#545454',
-    fontSize: 18,
+    color: theme.colors.error,
     fontWeight: 'bold',
-  }
+  },
 });
