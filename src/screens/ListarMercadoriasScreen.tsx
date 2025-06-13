@@ -1,27 +1,28 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, FlatList, ActivityIndicator, Alert, TouchableOpacity, TextInput } from 'react-native';
-// import axios from 'axios'; // REMOVA esta linha
-// import * as SecureStore from 'expo-secure-store'; // Não é mais necessário aqui
-import { styles as listarMercadoriasStyles } from './stylesListarMercadorias'; //
+// ACRESCENTADO o "Image"
+import { View, Text, FlatList, ActivityIndicator, Alert, TouchableOpacity, TextInput, Image } from 'react-native';
+import { styles as listarMercadoriasStyles } from './stylesListarMercadorias';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
+import axiosInstance from '../api/axiosInstance';
+import axios from 'axios';
+// ACRESCENTADO para o ícone de imagem padrão
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { theme } from '../global/themes';
 
-// Importe a instância configurada do Axios e o helper isAxiosError
-import axiosInstance from '../api/axiosInstance'; // Ajuste o caminho se necessário
-import axios from 'axios'; // Para usar axios.isAxiosError
 
 export interface Produto {
   id: number;
   nome: string;
   precoCusto?: number;
-  preco: number; // Preço de Venda
+  preco: number;
   estoque: number;
   tamanho?: string;
   categoria?: string;
   dataCadastro?: string;
-  // O campo 'ativo' não é geralmente retornado pela API para listagens de ativos,
-  // mas se for, pode ser incluído aqui. O backend filtra por ativo=true.
+  // CAMPO DA IMAGEM ADICIONADO À INTERFACE
+  imagemUri?: string; 
 }
 
 interface PaginatedResponse<T> {
@@ -35,7 +36,6 @@ interface PaginatedResponse<T> {
   empty: boolean;
 }
 
-// const API_BASE_URL = 'http://192.168.1.5:8080'; // Não é mais necessário
 const PAGE_SIZE = 10;
 
 type ListarMercadoriasNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ListarMercadorias'>;
@@ -70,17 +70,15 @@ export default function ListarMercadoriasScreen() {
     if (isNewSearchOrRefresh) setError(null);
 
     try {
-      // O token será adicionado automaticamente pelo interceptor
       const params: Record<string, string | number> = {
         page: pageToFetch,
         size: PAGE_SIZE,
-        sort: 'nome,asc', // Ordenar por nome ascendentemente
+        sort: 'nome,asc',
       };
       if (searchTerm.trim() !== '') {
         params.nome = searchTerm.trim();
       }
-
-      // Use axiosInstance
+      
       const response = await axiosInstance.get<PaginatedResponse<Produto>>('/produtos', { params });
 
       if (response.data && response.data.content) {
@@ -168,10 +166,9 @@ export default function ListarMercadoriasScreen() {
   const handleDeletarProduto = async (produtoId: number) => {
     setIsDeleting(produtoId);
     try {
-      // O token será adicionado automaticamente
-      await axiosInstance.delete(`/produtos/${produtoId}`); //
+      await axiosInstance.delete(`/produtos/${produtoId}`);
       Alert.alert("Sucesso", "Mercadoria deletada!");
-      handleRefresh(); // Recarrega a lista
+      handleRefresh();
     } catch (error: any) {
       console.error("ListarMercadoriasScreen: Erro ao deletar mercadoria:", JSON.stringify(error.response?.data || error.message));
       if (axios.isAxiosError(error) && error.response?.status !== 401) {
@@ -194,34 +191,51 @@ export default function ListarMercadoriasScreen() {
     }
     return null;
   };
-
+  
+  // FUNÇÃO RENDERITEM TOTALMENTE MODIFICADA
   const renderItem = ({ item }: { item: Produto }) => (
     <TouchableOpacity
       style={listarMercadoriasStyles.itemContainer}
       onPress={() => navigation.navigate('EditarMercadoria', { produtoId: item.id })}
     >
-      <Text style={listarMercadoriasStyles.itemName}>{item.nome} {item.tamanho ? `- ${item.tamanho}` : ''}</Text>
-      <Text style={listarMercadoriasStyles.itemDetails}>Categoria: {item.categoria || 'N/A'}</Text>
-      {item.precoCusto !== undefined && item.precoCusto !== null && (
-        <Text style={listarMercadoriasStyles.itemDetails}>
-          Preço Custo: R$ {typeof item.precoCusto === 'number' ? item.precoCusto.toFixed(2) : 'N/A'}
+      {/* Container para a imagem */}
+      <View style={listarMercadoriasStyles.imageContainer}>
+        {item.imagemUri ? (
+          <Image source={{ uri: item.imagemUri }} style={listarMercadoriasStyles.itemImage} />
+        ) : (
+          <MaterialCommunityIcons name="image-off-outline" size={32} color={theme.colors.placeholder} />
+        )}
+      </View>
+
+      {/* Container para os detalhes do produto */}
+      <View style={listarMercadoriasStyles.detailsContainer}>
+        <Text style={listarMercadoriasStyles.itemName}>{item.nome} {item.tamanho ? `- ${item.tamanho}` : ''}</Text>
+        <Text style={listarMercadoriasStyles.itemDetails}>Categoria: {item.categoria || 'N/A'}</Text>
+        {item.precoCusto !== undefined && item.precoCusto !== null && (
+          <Text style={listarMercadoriasStyles.itemDetails}>
+            Preço Custo: R$ {typeof item.precoCusto === 'number' ? item.precoCusto.toFixed(2) : 'N/A'}
+          </Text>
+        )}
+        <Text style={listarMercadoriasStyles.itemDetails}>Preço Venda: R$ {item.preco.toFixed(2)}</Text>
+        <Text style={listarMercadoriasStyles.itemDetails}>Estoque: {item.estoque}</Text>
+        <Text style={item.estoque > 0 ? listarMercadoriasStyles.statusDisponivel : listarMercadoriasStyles.statusVendido}>
+          Status: {item.estoque > 0 ? 'Disponível' : 'Sem Estoque'}
         </Text>
-      )}
-      <Text style={listarMercadoriasStyles.itemDetails}>Preço Venda: R$ {item.preco.toFixed(2)}</Text>
-      <Text style={listarMercadoriasStyles.itemDetails}>Estoque: {item.estoque}</Text>
-      <Text style={item.estoque > 0 ? listarMercadoriasStyles.statusDisponivel : listarMercadoriasStyles.statusVendido}>
-        Status: {item.estoque > 0 ? 'Disponível' : 'Sem Estoque'}
-      </Text>
-      <TouchableOpacity
-        style={listarMercadoriasStyles.deleteButton}
-        onPress={() => confirmarDelecao(item.id, item.nome)}
-        disabled={isDeleting === item.id}
-      >
-        {isDeleting === item.id ?
-          <ActivityIndicator size="small" color="#FFFFFF" /> :
-          <Text style={listarMercadoriasStyles.deleteButtonText}>Deletar</Text>
-        }
-      </TouchableOpacity>
+      </View>
+
+      {/* Container para o botão de deletar */}
+      <View style={listarMercadoriasStyles.deleteButtonContainer}>
+        <TouchableOpacity
+          style={listarMercadoriasStyles.deleteButton}
+          onPress={() => confirmarDelecao(item.id, item.nome)}
+          disabled={isDeleting === item.id}
+        >
+          {isDeleting === item.id ?
+            <ActivityIndicator size="small" color="#FFFFFF" /> :
+            <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FFFFFF" />
+          }
+        </TouchableOpacity>
+      </View>
     </TouchableOpacity>
   );
 

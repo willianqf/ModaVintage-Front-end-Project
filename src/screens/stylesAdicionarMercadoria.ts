@@ -63,11 +63,23 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: `${theme.colors.placeholder}10`,
+    // Adicionado para garantir que a imagem não ultrapasse o botão
+    overflow: 'hidden', 
   },
   imagePickerText: {
     color: theme.colors.placeholder,
     fontWeight: 'bold',
+    marginTop: theme.spacing.sm, // Adiciona um espaço entre o ícone e o texto
   },
+  
+  // NOVO ESTILO ADICIONADO PARA A PRÉ-VISUALIZAÇÃO DA IMAGEM
+  imagePreview: {
+    width: 120,
+    height: 120,
+    borderRadius: theme.borderRadius.md,
+    resizeMode: 'cover',
+  },
+
 
   // --- Botões de Ação ---
   buttonContainer: {

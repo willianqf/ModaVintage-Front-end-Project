@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, ActivityIndicator, Image, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
-import { styles } from './stylesAdicionarMercadoria'; // Certifique-se que o caminho está correto
+import { styles } from './stylesAdicionarMercadoria'; 
 import axiosInstance from '../api/axiosInstance';
 import axios from 'axios';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../global/themes';
+import * as ImagePicker from 'expo-image-picker';
 
 
 type AdicionarMercadoriaNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AdicionarMercadoria'>;
@@ -15,15 +16,38 @@ type AdicionarMercadoriaNavigationProp = NativeStackNavigationProp<RootStackPara
 export default function AdicionarMercadoriaScreen() {
   const navigation = useNavigation<AdicionarMercadoriaNavigationProp>();
 
-  // --- SEU BLOCO DE ESTADOS E LÓGICA (useState, handlers) ---
-  // --- NENHUMA ALTERAÇÃO FOI FEITA AQUI ---
   const [nome, setNome] = useState('');
   const [precoCusto, setPrecoCusto] = useState('');
-  const [preco, setPreco] = useState(''); // Este é o preço de venda
+  const [preco, setPreco] = useState('');
   const [estoque, setEstoque] = useState('');
   const [tamanho, setTamanho] = useState('');
   const [categoria, setCategoria] = useState('');
+  const [imagemUri, setImagemUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // ==================================================================
+  // AQUI ESTÁ A ÚNICA MUDANÇA: A FUNÇÃO PARA USAR A CÂMERA
+  // ==================================================================
+  const handleEscolherImagem = async () => {
+    // Pede permissão para USAR A CÂMERA
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Desculpe, precisamos da permissão para usar a câmera para que isso funcione!');
+      return;
+    }
+
+    // ABRE A CÂMERA do dispositivo
+    let result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true, // Permite cortar a imagem depois de tirar
+      aspect: [4, 4],    // Força um corte quadrado
+      quality: 0.7,      // Reduz um pouco a qualidade para economizar espaço
+    });
+
+    if (!result.canceled) {
+      setImagemUri(result.assets[0].uri);
+    }
+  };
+
 
   const handleAdicionarMercadoria = async () => {
     if (!nome.trim() || !precoCusto.trim() || !preco.trim() || !estoque.trim()) {
@@ -65,6 +89,7 @@ export default function AdicionarMercadoriaScreen() {
         estoque: estoqueVal,
         tamanho: tamanho.trim() || undefined,
         categoria: categoria.trim() || undefined,
+        imagemUri: imagemUri, 
       };
       await axiosInstance.post('/produtos', produtoData);
       Alert.alert("Sucesso", "Mercadoria adicionada com sucesso!");
@@ -86,8 +111,8 @@ export default function AdicionarMercadoriaScreen() {
       setIsLoading(false);
     }
   };
-  // --- FIM DO BLOCO DE LÓGICA ---
 
+  // O RESTANTE DO CÓDIGO (JSX) PERMANECE IDÊNTICO, NÃO PRECISA MUDAR NADA
   return (
     <View style={styles.container}>
         <View style={styles.header}>
@@ -95,6 +120,7 @@ export default function AdicionarMercadoriaScreen() {
         </View>
         <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">
             <View style={styles.content}>
+                {/* ... Campos de texto ... */}
                 <View style={styles.formGroup}>
                     <Text style={styles.label}>Nome da Mercadoria</Text>
                     <TextInput style={styles.input} value={nome} onChangeText={setNome} placeholder="Ex: Camisa Floral" />
@@ -124,15 +150,22 @@ export default function AdicionarMercadoriaScreen() {
                     <Text style={styles.label}>Categoria (Opcional)</Text>
                     <TextInput style={styles.input} value={categoria} onChangeText={setCategoria} placeholder="Ex: Vestuário, Acessórios" />
                 </View>
-
+                
                 <View style={styles.formGroup}>
-                    <TouchableOpacity 
-                        style={styles.imagePickerButton}
-                        onPress={() => Alert.alert("Funcionalidade Pendente", "A seleção de fotos será implementada futuramente.")}
-                    >
+                  <Text style={styles.label}>Foto (Opcional)</Text>
+                  <TouchableOpacity 
+                      style={styles.imagePickerButton}
+                      onPress={handleEscolherImagem}
+                  >
+                    {imagemUri ? (
+                      <Image source={{ uri: imagemUri }} style={styles.imagePreview} />
+                    ) : (
+                      <>
                         <MaterialCommunityIcons name="camera-plus-outline" size={24} color={theme.colors.placeholder} />
-                        <Text style={styles.imagePickerText}>Adicionar Foto (Pendente)</Text> 
-                    </TouchableOpacity>
+                        <Text style={styles.imagePickerText}>Tirar Foto</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
                 </View>
                 
                 <View style={styles.buttonContainer}>

@@ -59,21 +59,51 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.05,
   },
 
-  // --- Botão de Imagem (Estilo Secundário) ---
-  imagePickerButton: {
-    borderStyle: 'dashed',
+  // --- SEÇÃO DE FOTO REESTRUTURADA ---
+  imagePreviewContainer: {
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  imagePreview: {
+    width: 150,
+    height: 150,
+    // CORRIGIDO AQUI
+    borderRadius: theme.borderRadius.md, 
+    backgroundColor: '#e0e0e0',
+  },
+  imagePlaceholder: {
+    width: 150,
+    height: 150,
+    // CORRIGIDO AQUI
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: `${theme.colors.placeholder}10`,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 2,
     borderColor: theme.colors.placeholder,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.lg,
+    borderStyle: 'dashed',
+  },
+  imagePlaceholderText: {
+    marginTop: theme.spacing.sm,
+    color: theme.colors.placeholder,
+  },
+  imagePickerButton: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: `${theme.colors.placeholder}10`,
+    backgroundColor: theme.colors.surface,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    alignSelf: 'center',
   },
-  imagePickerText: {
-    color: theme.colors.placeholder,
+  imagePickerButtonText: {
+    color: theme.colors.primary,
     fontWeight: 'bold',
-    marginTop: theme.spacing.sm,
+    marginLeft: theme.spacing.sm,
+    fontSize: 16,
   },
   
   // --- Botões de Ação ---

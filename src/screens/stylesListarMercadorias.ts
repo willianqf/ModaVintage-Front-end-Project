@@ -32,9 +32,11 @@ export const styles = StyleSheet.create({
     fontSize: 16,
   },
   listContentContainer: {
-     paddingHorizontal: 15,
-     paddingBottom: 20,
+      paddingHorizontal: 15,
+      paddingBottom: 20,
   },
+  
+  // --- ESTILOS DO ITEM DA LISTA MODIFICADOS ---
   itemContainer: {
     backgroundColor: '#FFFFFF',
     padding: 15,
@@ -42,6 +44,25 @@ export const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#E5E5E5',
+    flexDirection: 'row', // Alinha imagem e detalhes horizontalmente
+    alignItems: 'center', // Centraliza verticalmente
+  },
+  imageContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    backgroundColor: '#F0F0F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  itemImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+  },
+  detailsContainer: {
+    flex: 1, // Faz com que o container de detalhes ocupe o espaço restante
   },
   itemName: {
     fontSize: 18,
@@ -58,56 +79,59 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     color: 'green',
     fontWeight: 'bold',
-    marginBottom: 8,
   },
   statusVendido: {
     fontSize: 14,
     color: '#FF0000',
     fontWeight: 'bold',
-    marginBottom: 8,
+  },
+
+  // --- BOTÃO DE DELETAR MODIFICADO ---
+  deleteButtonContainer: {
+    marginLeft: 10, // Espaço entre os detalhes e o botão
   },
   deleteButton: {
     backgroundColor: '#FF0000',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 5,
-    alignSelf: 'flex-start',
-    marginTop: 10,
-    minHeight: 36,
+    padding: 8,
+    borderRadius: 20, // Deixa o botão redondo
     justifyContent: 'center',
     alignItems: 'center',
+    width: 36, // Tamanho fixo
+    height: 36, // Tamanho fixo
   },
-  deleteButtonText: {
+  deleteButtonText: { // Este estilo não é mais usado, pois trocamos por um ícone
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: 'bold',
   },
+  
+  // --- ESTILOS DE FEEDBACK (ERRO, LOADING) ---
   errorText: {
-     fontSize: 16,
-     color: 'red',
-     textAlign: 'center',
-     marginBottom: 10,
+      fontSize: 16,
+      color: 'red',
+      textAlign: 'center',
+      marginBottom: 10,
   },
   retryButton: {
-     backgroundColor: '#5DBEDD',
-     paddingVertical: 10,
-     paddingHorizontal: 20,
-     borderRadius: 5,
-     marginTop:10,
+      backgroundColor: '#5DBEDD',
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+      borderRadius: 5,
+      marginTop:10,
   },
   retryButtonText: {
-     color: '#FFFFFF',
-     fontSize: 16,
+      color: '#FFFFFF',
+      fontSize: 16,
   },
   loadingText: {
     fontSize: 16,
     color: '#545454',
     marginTop: 10,
   },
-  emptyDataText: { // <-- ESTILO ADICIONADO AQUI
+  emptyDataText: {
     fontSize: 16,
-    color: '#777777', // Cor um pouco mais suave para mensagens de lista vazia
+    color: '#777777',
     textAlign: 'center',
-    marginTop: 20, // Espaçamento do topo se a lista estiver vazia
+    marginTop: 20,
   }
 });
