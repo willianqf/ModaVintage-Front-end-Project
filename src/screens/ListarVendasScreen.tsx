@@ -9,52 +9,69 @@ import DateTimePickerModal from "react-native-modal-datetime-picker";
 
 // --- Interfaces ---
 interface Cliente { id: number; nome: string; }
-interface ItemVenda { id: number; quantidade: number; nomeProdutoSnapshot: string; }
-interface Venda { id: number; cliente: { id: number; nome: string } | null; itens: ItemVenda[]; totalVenda: number; dataVenda: string; nomeClienteSnapshot: string | null; }
-interface PaginatedResponse<T> { content: T[]; last: boolean; number: number; }
-interface ActiveFilters { cliente: Cliente | null; dataInicio: Date | null; dataFim: Date | null; }
+
+// ===== 1. INTERFACE CORRIGIDA =====
+// Apenas adicionamos o campo 'precoUnitarioSnapshot'.
+// O campo 'quantidade' permanece com o nome original e correto.
+interface ItemVenda { 
+  id: number; 
+  quantidade: number;
+  nomeProdutoSnapshot: string; 
+  precoUnitarioSnapshot: number; 
+}
+
+interface Venda { 
+  id: number; 
+  cliente: { id: number; nome: string } | null; 
+  itens: ItemVenda[]; 
+  totalVenda: number; 
+  dataVenda: string; 
+  nomeClienteSnapshot: string | null; 
+}
+
+interface PaginatedResponse<T> { 
+  content: T[]; 
+  last: boolean; 
+  number: number; 
+}
+
+interface ActiveFilters { 
+  cliente: Cliente | null; 
+  dataInicio: Date | null; 
+  dataFim: Date | null; 
+}
 
 const PAGE_SIZE = 10;
 
 export default function ListarVendasScreen() {
-  // --- Estados ---
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
-  
   const [filterCliente, setFilterCliente] = useState<Cliente | null>(null);
   const [filterDataInicio, setFilterDataInicio] = useState<Date | null>(null);
   const [filterDataFim, setFilterDataFim] = useState<Date | null>(null);
-  
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const [datePickerTarget, setDatePickerTarget] = useState<'inicio' | 'fim' | null>(null);
   const [clienteModalVisible, setClienteModalVisible] = useState(false);
-  // ===== CORREÇÃO APLICADA: Inicializando com um array vazio =====
-  // Isso garante que `listaClientes.filter` nunca falhe, mesmo antes da API retornar.
   const [listaClientes, setListaClientes] = useState<Cliente[]>([]);
   const [searchTermCliente, setSearchTermCliente] = useState('');
 
-  // --- Refs ---
   const currentPageRef = useRef(0);
   const hasMoreRef = useRef(true);
   const isFetchingRef = useRef(false);
   const activeFiltersRef = useRef<ActiveFilters>({ cliente: null, dataInicio: null, dataFim: null });
 
   const fetchVendas = async (pageToFetch: number, isNewSearchOrRefresh: boolean) => {
-    if (isFetchingRef.current) return;
+    if (isFetchingRef.current && !isNewSearchOrRefresh) return;
     if (!isNewSearchOrRefresh && !hasMoreRef.current) {
         setIsLoadingMore(false);
         return;
     }
 
     isFetchingRef.current = true;
-    if (isNewSearchOrRefresh) {
-        setIsLoading(true);
-    } else {
-        setIsLoadingMore(true);
-    }
+    if (isNewSearchOrRefresh) setIsLoading(true); else setIsLoadingMore(true);
     setError(null);
 
     try {
@@ -91,13 +108,12 @@ export default function ListarVendasScreen() {
   };
 
   const fetchClientesParaModal = async () => {
-    // Não precisa mais da verificação de tamanho, pois a busca é feita no foco da tela.
     try {
         const response = await axiosInstance.get<Cliente[]>('/clientes/todos');
-        setListaClientes(response.data || []); // Garante que, mesmo com resposta nula, seja um array
+        setListaClientes(response.data || []);
     } catch (error) {
         Alert.alert("Erro", "Não foi possível carregar a lista de clientes para o filtro.");
-        setListaClientes([]); // Em caso de erro, define como array vazio para não quebrar a UI
+        setListaClientes([]);
     }
   }
 
@@ -160,13 +176,19 @@ export default function ListarVendasScreen() {
 
   const formatarData = (dataISO: string) => new Date(dataISO).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-  // --- Renderização (JSX) ---
+  // ===== 2. RENDERIZAÇÃO CORRIGIDA =====
+  // O texto agora usa 'iv.quantidade' e 'iv.precoUnitarioSnapshot', que são
+  // os nomes corretos dos campos. A proteção '|| 0' continua para evitar crashes.
   const renderVendaItem = ({ item }: { item: Venda }) => (
     <View style={styles.itemContainer}>
       <View style={styles.itemHeader}><Text style={styles.saleId}>Venda ID: {item.id}</Text><Text style={styles.saleDate}>{formatarData(item.dataVenda)}</Text></View>
       <Text style={styles.customerName}>Cliente: {item.nomeClienteSnapshot || 'Não informado'}</Text>
       <Text style={styles.itemsTitle}>Itens:</Text>
-      {item.itens.slice(0, 3).map(iv => <Text key={iv.id} style={styles.itemDetailText}>- {iv.quantidade}x {iv.nomeProdutoSnapshot}</Text>)}
+      {item.itens.slice(0, 3).map(iv => (
+        <Text key={iv.id} style={styles.itemDetailText}>
+          - {iv.quantidade || 0}x {iv.nomeProdutoSnapshot} (R$ {(iv.precoUnitarioSnapshot || 0).toFixed(2)} cada)
+        </Text>
+      ))}
       {item.itens.length > 3 && <Text style={styles.itemDetailText}>...e mais {item.itens.length - 3} item(ns)</Text>}
       <Text style={styles.totalSale}>Total: R$ {item.totalVenda.toFixed(2)}</Text>
       <View style={styles.actionsContainer}><TouchableOpacity style={styles.cancelSaleButton} onPress={() => confirmarDelecao(item.id)} disabled={isDeleting === item.id}>{isDeleting === item.id ? <ActivityIndicator size="small" color={theme.colors.error} /> : <Text style={styles.cancelSaleButtonText}>Cancelar Venda</Text>}</TouchableOpacity></View>
@@ -175,21 +197,24 @@ export default function ListarVendasScreen() {
 
   const renderFiltros = () => (
     <View style={styles.filtersContainer}>
-        <TouchableOpacity style={[styles.filterButton, filterCliente && styles.filterButtonActive]} onPress={() => setClienteModalVisible(true)}>
-            <MaterialCommunityIcons name="account-outline" size={20} color={theme.colors.primary} /><Text style={styles.filterButtonText} numberOfLines={1}>{filterCliente ? filterCliente.nome : 'Filtrar por Cliente'}</Text>
+      <TouchableOpacity style={[styles.filterButton, filterCliente && styles.filterButtonActive]} onPress={() => setClienteModalVisible(true)}>
+        <MaterialCommunityIcons name="account-outline" size={20} color={theme.colors.primary} />
+        <Text style={styles.filterButtonText} numberOfLines={1}>{filterCliente ? filterCliente.nome : 'Filtrar por Cliente'}</Text>
+      </TouchableOpacity>
+      <View style={[styles.filterRow, {marginTop: theme.spacing.sm}]}>
+        <TouchableOpacity style={[styles.filterButton, { marginRight: theme.spacing.sm }, filterDataInicio && styles.filterButtonActive]} onPress={() => showDatePickerFor('inicio')}>
+          <MaterialCommunityIcons name="calendar-start" size={20} color={theme.colors.primary} />
+          <Text style={styles.filterButtonText}>{filterDataInicio ? filterDataInicio.toLocaleDateString('pt-BR') : 'Data Início'}</Text>
         </TouchableOpacity>
-        <View style={[styles.filterRow, {marginTop: theme.spacing.sm}]}>
-            <TouchableOpacity style={[styles.filterButton, { marginRight: theme.spacing.sm }, filterDataInicio && styles.filterButtonActive]} onPress={() => showDatePickerFor('inicio')}>
-                <MaterialCommunityIcons name="calendar-start" size={20} color={theme.colors.primary} /><Text style={styles.filterButtonText}>{filterDataInicio ? filterDataInicio.toLocaleDateString('pt-BR') : 'Data Início'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.filterButton, filterDataFim && styles.filterButtonActive]} onPress={() => showDatePickerFor('fim')}>
-                <MaterialCommunityIcons name="calendar-end" size={20} color={theme.colors.primary} /><Text style={styles.filterButtonText}>{filterDataFim ? filterDataFim.toLocaleDateString('pt-BR') : 'Data Fim'}</Text>
-            </TouchableOpacity>
-        </View>
-        <View style={styles.filterActions}>
-            <TouchableOpacity style={styles.clearFilterButton} onPress={() => handleClearFilters(true)}><Text style={styles.clearFilterButtonText}>LIMPAR</Text></TouchableOpacity>
-            <TouchableOpacity style={styles.applyFilterButton} onPress={handleApplyFilters}><Text style={styles.applyFilterButtonText}>APLICAR</Text></TouchableOpacity>
-        </View>
+        <TouchableOpacity style={[styles.filterButton, filterDataFim && styles.filterButtonActive]} onPress={() => showDatePickerFor('fim')}>
+          <MaterialCommunityIcons name="calendar-end" size={20} color={theme.colors.primary} />
+          <Text style={styles.filterButtonText}>{filterDataFim ? filterDataFim.toLocaleDateString('pt-BR') : 'Data Fim'}</Text>
+        </TouchableOpacity>
+      </View>
+      <View style={styles.filterActions}>
+        <TouchableOpacity style={styles.clearFilterButton} onPress={() => handleClearFilters(true)}><Text style={styles.clearFilterButtonText}>LIMPAR</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.applyFilterButton} onPress={handleApplyFilters}><Text style={styles.applyFilterButtonText}>APLICAR</Text></TouchableOpacity>
+      </View>
     </View>
   );
 

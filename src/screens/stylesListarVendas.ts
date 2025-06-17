@@ -8,17 +8,24 @@ export const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   header: {
-    backgroundColor: theme.colors.surface,
-    padding: theme.spacing.md,
+    backgroundColor: theme.colors.primary,
     paddingTop: 40,
-    borderBottomWidth: 1,
-    borderBottomColor: `${theme.colors.placeholder}40`,
+    paddingBottom: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: 'bold',
+    color: theme.colors.surface,
     textAlign: 'center',
-    color: theme.colors.text,
+  },
+  scrollView: {
+    flex: 1,
   },
   
   // --- Área de Filtros ---
