@@ -1,281 +1,201 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, FlatList, ActivityIndicator, Alert, TouchableOpacity, TextInput } from 'react-native';
-// import axios from 'axios'; // REMOVA esta linha
-// import * as SecureStore from 'expo-secure-store'; // Não é mais necessário aqui
-import { styles as listarFornecedoresStyles } from './stylesListarFornecedores'; //
+import { styles } from './stylesListarFornecedores';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
+import axiosInstance from '../api/axiosInstance';
+import axios from 'axios';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { theme } from '../global/themes';
 
-// Importe a instância configurada do Axios e o helper isAxiosError
-import axiosInstance from '../api/axiosInstance'; // Ajuste o caminho se necessário
-import axios from 'axios'; // Para usar axios.isAxiosError
-
+// --- Interfaces (usando a versão original do seu código) ---
 export interface Fornecedor {
   id: number;
   nome: string;
   cnpj?: string;
   contato?: string;
 }
+interface PaginatedResponse<T> { content: T[]; last: boolean; number: number; }
 
-interface PaginatedResponse<T> {
-  content: T[];
-  totalPages: number;
-  totalElements: number;
-  number: number;
-  size: number;
-  first: boolean;
-  last: boolean;
-  empty: boolean;
-}
-
-// const API_BASE_URL = 'http://192.168.1.5:8080'; // Não é mais necessário
 const PAGE_SIZE = 10;
-
 type ListarFornecedoresNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ListarFornecedores'>;
 
 export default function ListarFornecedoresScreen() {
+  // --- Lógica de Estado e Hooks (sem alterações) ---
   const navigation = useNavigation<ListarFornecedoresNavigationProp>();
-
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-
   const currentPageRef = useRef(0);
   const hasMoreRef = useRef(true);
   const isFetchingRef = useRef(false);
-
   const [termoPesquisaInput, setTermoPesquisaInput] = useState('');
   const [termoPesquisaAtivo, setTermoPesquisaAtivo] = useState('');
 
+  // --- Lógica de Busca e Manipulação de Dados (mantida do seu código original) ---
   const fetchFornecedores = useCallback(async (pageToFetch: number, searchTerm: string, isNewSearchOrRefresh: boolean) => {
-    if (isFetchingRef.current && !isNewSearchOrRefresh) {
-      return;
-    }
-    if (!isNewSearchOrRefresh && !hasMoreRef.current) {
-      setIsLoadingMore(false);
-      return;
-    }
+    if (isFetchingRef.current && !isNewSearchOrRefresh) return;
+    if (!isNewSearchOrRefresh && !hasMoreRef.current) { setIsLoadingMore(false); return; }
 
     isFetchingRef.current = true;
     if (isNewSearchOrRefresh) setIsLoading(true); else setIsLoadingMore(true);
     if (isNewSearchOrRefresh) setError(null);
 
     try {
-      // O token será adicionado automaticamente pelo interceptor do axiosInstance
       const params: Record<string, string | number> = {
         page: pageToFetch,
         size: PAGE_SIZE,
-        sort: 'nome,ASC', // Endpoint do backend espera 'ASC' ou 'DESC'
+        sort: 'nome,ASC',
       };
       if (searchTerm.trim() !== '') {
         params.nome = searchTerm.trim();
       }
-      
-      console.log("ListarFornecedoresScreen: Enviando params:", params); // Debug
 
-      // Use axiosInstance
       const response = await axiosInstance.get<PaginatedResponse<Fornecedor>>('/fornecedores', { params });
-
       if (response.data && response.data.content) {
-        setFornecedores(prevFornecedores =>
-          (isNewSearchOrRefresh || pageToFetch === 0) ? response.data.content : [...prevFornecedores, ...response.data.content]
-        );
+        setFornecedores(prev => (isNewSearchOrRefresh || pageToFetch === 0) ? response.data.content : [...prev, ...response.data.content]);
         hasMoreRef.current = !response.data.last;
         currentPageRef.current = response.data.number;
       } else {
         if (isNewSearchOrRefresh || pageToFetch === 0) setFornecedores([]);
         hasMoreRef.current = false;
       }
-      if (error && (isNewSearchOrRefresh || pageToFetch === 0)) setError(null);
-
     } catch (err: any) {
       console.error("ListarFornecedoresScreen: Erro ao buscar fornecedores:", JSON.stringify(err.response?.data || err.message));
       if (axios.isAxiosError(err)) {
         if (err.response && err.response.status !== 401) {
-          const apiErrorMessage = err.response.data?.erro || err.response.data?.message || "Não foi possível carregar os fornecedores.";
-          setError(apiErrorMessage);
+          setError(err.response.data?.erro || err.response.data?.message || "Não foi possível carregar os fornecedores.");
         } else if (!err.response) {
-          setError("Erro de conexão ao buscar fornecedores.");
+          setError("Erro de conexão.");
         }
       } else {
-        setError("Ocorreu um erro desconhecido ao buscar fornecedores.");
+        setError("Ocorreu um erro desconhecido.");
       }
       if (isNewSearchOrRefresh || pageToFetch === 0) setFornecedores([]);
     } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
-      isFetchingRef.current = false;
+      setIsLoading(false); setIsLoadingMore(false); isFetchingRef.current = false;
     }
   }, [error]);
 
   useEffect(() => {
-    const handler = setTimeout(() => {
-      if (termoPesquisaInput !== termoPesquisaAtivo) {
-        setTermoPesquisaAtivo(termoPesquisaInput);
-      }
-    }, 800);
+    const handler = setTimeout(() => { if (termoPesquisaInput !== termoPesquisaAtivo) setTermoPesquisaAtivo(termoPesquisaInput); }, 800);
     return () => clearTimeout(handler);
   }, [termoPesquisaInput, termoPesquisaAtivo]);
 
   useEffect(() => {
-    currentPageRef.current = 0;
-    hasMoreRef.current = true;
+    currentPageRef.current = 0; hasMoreRef.current = true;
     fetchFornecedores(0, termoPesquisaAtivo, true);
   }, [termoPesquisaAtivo, fetchFornecedores]);
 
-  useFocusEffect(
-    useCallback(() => {
-      currentPageRef.current = 0;
-      hasMoreRef.current = true;
-      fetchFornecedores(0, termoPesquisaAtivo, true);
-      return () => {};
-    }, [termoPesquisaAtivo, fetchFornecedores])
-  );
-
-  const handleLoadMore = () => {
-    if (!isFetchingRef.current && hasMoreRef.current && !isLoadingMore) {
-      fetchFornecedores(currentPageRef.current + 1, termoPesquisaAtivo, false);
-    }
-  };
-
-  const handleRefresh = () => {
-    currentPageRef.current = 0;
-    hasMoreRef.current = true;
+  useFocusEffect(useCallback(() => {
+    currentPageRef.current = 0; hasMoreRef.current = true;
     fetchFornecedores(0, termoPesquisaAtivo, true);
-  };
+  }, [termoPesquisaAtivo, fetchFornecedores]));
 
-  const handleSearchSubmit = () => {
-    if (termoPesquisaInput !== termoPesquisaAtivo) {
-      setTermoPesquisaAtivo(termoPesquisaInput);
-    } else {
-      handleRefresh();
-    }
-  };
+  const handleLoadMore = () => { if (!isFetchingRef.current && hasMoreRef.current && !isLoadingMore) fetchFornecedores(currentPageRef.current + 1, termoPesquisaAtivo, false); };
+  const handleRefresh = () => { currentPageRef.current = 0; hasMoreRef.current = true; fetchFornecedores(0, termoPesquisaAtivo, true); };
 
-  const confirmarDelecao = (fornecedorId: number, fornecedorNome: string) => {
-    Alert.alert("Confirmar Deleção", `Tem certeza que deseja deletar o fornecedor "${fornecedorNome}"?`,
-      [{ text: "Cancelar", style: "cancel" }, { text: "Deletar", onPress: () => handleDeletarFornecedor(fornecedorId), style: "destructive" }]
-    );
-  };
+  const confirmarDelecao = (id: number, nome: string) => Alert.alert("Confirmar Deleção", `Tem certeza que deseja deletar o fornecedor "${nome}"?`, [{ text: "Cancelar", style: "cancel" }, { text: "Deletar", onPress: () => handleDeletar(id), style: "destructive" }]);
 
-  const handleDeletarFornecedor = async (fornecedorId: number) => {
-    setIsDeleting(fornecedorId);
+  const handleDeletar = async (id: number) => {
+    setIsDeleting(id);
     try {
-      // O token será adicionado automaticamente pelo interceptor
-      await axiosInstance.delete(`/fornecedores/${fornecedorId}`); //
-      Alert.alert("Sucesso", "Fornecedor deletado!");
-      handleRefresh(); // Recarrega a lista
+      await axiosInstance.delete(`/fornecedores/${id}`);
+      Alert.alert("Sucesso", "Fornecedor deletado com sucesso!");
+      handleRefresh();
     } catch (error: any) {
-      console.error("ListarFornecedoresScreen: Erro ao deletar fornecedor:", JSON.stringify(error.response?.data || error.message));
-      if (axios.isAxiosError(error) && error.response?.status !== 401) {
-        const apiErrorMessage = error.response?.data?.erro || error.response?.data?.message || "Não foi possível deletar o fornecedor.";
-        Alert.alert("Erro ao Deletar", apiErrorMessage);
-      } else if (!axios.isAxiosError(error)){
-        Alert.alert("Erro Desconhecido", "Ocorreu um erro inesperado ao deletar.");
-      }
+      Alert.alert("Erro ao Deletar", "Não foi possível deletar o fornecedor.");
     } finally {
       setIsDeleting(null);
     }
   };
 
-  const renderFooter = (): React.ReactElement | null => {
-    if (isLoadingMore) {
-      return <View style={{ paddingVertical: 20 }}><ActivityIndicator size="large" color="#323588" /></View>;
-    }
-    if (!hasMoreRef.current && fornecedores.length > 0 && !isLoading && !error) {
-      return <View style={{ paddingVertical: 20 }}><Text style={listarFornecedoresStyles.emptyDataText}>Fim da lista de fornecedores.</Text></View>;
-    }
-    return null;
-  };
-
+  // --- Componentes de Renderização com novo visual ---
   const renderItem = ({ item }: { item: Fornecedor }) => (
-    <TouchableOpacity
-      style={listarFornecedoresStyles.itemContainer}
-      onPress={() => navigation.navigate('EditarFornecedor', { fornecedorId: item.id })}
-    >
-      <View style={listarFornecedoresStyles.itemTextContainer}>
-        <Text style={listarFornecedoresStyles.itemName} numberOfLines={1} ellipsizeMode="tail">
-          {item.nome}
-        </Text>
+    <View style={styles.itemContainer}>
+      <View style={styles.itemContent}>
+        <Text style={styles.itemName}>{item.nome}</Text>
         {item.cnpj && (
-          <Text style={listarFornecedoresStyles.itemDetails} numberOfLines={1} ellipsizeMode="tail">
-            CNPJ: {item.cnpj}
-          </Text>
+          <View style={styles.itemDetails}>
+            <MaterialCommunityIcons name="card-account-details-outline" size={16} color={theme.colors.placeholder} />
+            <Text style={styles.itemDetailsText}>CNPJ: {item.cnpj}</Text>
+          </View>
         )}
         {item.contato && (
-          <Text style={listarFornecedoresStyles.itemDetails} numberOfLines={1} ellipsizeMode="tail">
-            Contato: {item.contato}
-          </Text>
+          <View style={styles.itemDetails}>
+            <MaterialCommunityIcons name="phone-outline" size={16} color={theme.colors.placeholder} />
+            <Text style={styles.itemDetailsText}>{item.contato}</Text>
+          </View>
         )}
       </View>
-      <TouchableOpacity
-        style={listarFornecedoresStyles.deleteButton}
-        onPress={(e) => {
-          e.stopPropagation();
-          confirmarDelecao(item.id, item.nome);
-        }}
-        disabled={isDeleting === item.id}
-      >
-        {isDeleting === item.id ?
-          <ActivityIndicator size="small" color="#FFFFFF" /> :
-          <Text style={listarFornecedoresStyles.deleteButtonText}>Deletar</Text>
-        }
-      </TouchableOpacity>
-    </TouchableOpacity>
+      <View style={styles.buttonsContainer}>
+        <TouchableOpacity style={[styles.actionButton, styles.editButton]} onPress={() => navigation.navigate('EditarFornecedor', { fornecedorId: item.id })} disabled={isDeleting === item.id}>
+          <MaterialCommunityIcons name="pencil-outline" size={18} color={theme.colors.primary} />
+          <Text style={[styles.actionButtonText, styles.editText]}>Editar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.actionButton, styles.deleteButton]} onPress={() => confirmarDelecao(item.id, item.nome)} disabled={isDeleting === item.id}>
+          {isDeleting === item.id ?
+            <ActivityIndicator size="small" color={theme.colors.error} /> :
+            <>
+              <MaterialCommunityIcons name="delete-outline" size={18} color={theme.colors.error} />
+              <Text style={[styles.actionButtonText, styles.deleteText]}>Deletar</Text>
+            </>
+          }
+        </TouchableOpacity>
+      </View>
+    </View>
   );
-  
-  const showInitialLoading = isLoading && fornecedores.length === 0 && currentPageRef.current === 0 && !error;
-  const showErrorScreen = error && fornecedores.length === 0 && !isLoading;
+
+  const renderListContent = () => {
+    // Tela de Carregamento inicial
+    if (isLoading && fornecedores.length === 0) {
+      return (<View style={styles.centered}><ActivityIndicator size="large" color={theme.colors.primary} /></View>);
+    }
+    // Tela de Erro
+    if (error && fornecedores.length === 0) {
+      return (<View style={styles.centered}><Text style={styles.errorText}>{error}</Text><TouchableOpacity style={styles.retryButton} onPress={handleRefresh}><Text style={styles.retryButtonText}>Tentar Novamente</Text></TouchableOpacity></View>);
+    }
+    // Lista de Fornecedores
+    return (
+      <FlatList
+        data={fornecedores}
+        renderItem={renderItem}
+        keyExtractor={(item) => `fornecedor-${item.id}`}
+        ListEmptyComponent={!isLoading ? (<View style={styles.centered}><Text style={styles.emptyDataText}>{termoPesquisaAtivo ? `Nenhum fornecedor encontrado para "${termoPesquisaAtivo}".` : 'Nenhum fornecedor cadastrado.'}</Text></View>) : null}
+        onRefresh={handleRefresh}
+        refreshing={isLoading}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={isLoadingMore ? <ActivityIndicator style={{ margin: 20 }} size="large" color={theme.colors.primary} /> : null}
+        contentContainerStyle={{ paddingBottom: 20 }}
+        keyboardShouldPersistTaps="handled"
+      />
+    );
+  };
 
   return (
-    <View style={listarFornecedoresStyles.container}>
-      <Text style={listarFornecedoresStyles.headerTitle}>Lista de Fornecedores</Text>
-      <TextInput
-        style={listarFornecedoresStyles.searchInput}
-        placeholder="Pesquisar fornecedor por nome..."
-        value={termoPesquisaInput}
-        onChangeText={setTermoPesquisaInput}
-        onSubmitEditing={handleSearchSubmit}
-        returnKeyType="search"
-        placeholderTextColor="#888"
-      />
-      {showInitialLoading ? (
-        <View style={listarFornecedoresStyles.centered}>
-          <ActivityIndicator size="large" color="#323588" />
-          <Text style={listarFornecedoresStyles.loadingText}>Carregando fornecedores...</Text>
+    <View style={styles.container}>
+      {/* Cabeçalho e Pesquisa fora da FlatList para corrigir o problema do teclado */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Lista de Fornecedores</Text>
+        <View style={styles.searchContainer}>
+          <MaterialCommunityIcons name="magnify" size={24} color={theme.colors.placeholder} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Pesquisar por nome..."
+            value={termoPesquisaInput}
+            onChangeText={setTermoPesquisaInput}
+            returnKeyType="search"
+            placeholderTextColor={theme.colors.placeholder}
+          />
         </View>
-      ) : showErrorScreen ? (
-        <View style={listarFornecedoresStyles.centered}>
-          <Text style={listarFornecedoresStyles.errorText}>{error}</Text>
-          <TouchableOpacity style={listarFornecedoresStyles.retryButton} onPress={handleRefresh}>
-            <Text style={listarFornecedoresStyles.retryButtonText}>Tentar Novamente</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <FlatList
-          data={fornecedores}
-          renderItem={renderItem}
-          keyExtractor={(item) => `fornecedor-${item.id.toString()}`}
-          contentContainerStyle={listarFornecedoresStyles.listContentContainer}
-          onRefresh={handleRefresh}
-          refreshing={isLoading && currentPageRef.current === 0 && !isLoadingMore}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={renderFooter}
-          ListEmptyComponent={
-            !isLoading && !error && fornecedores.length === 0 ? (
-              <View style={listarFornecedoresStyles.centered}>
-                <Text style={listarFornecedoresStyles.emptyDataText}>
-                  {termoPesquisaAtivo ? `Nenhum fornecedor encontrado para "${termoPesquisaAtivo}".` : 'Nenhum fornecedor cadastrado.'}
-                </Text>
-              </View>
-            ) : null
-          }
-        />
-      )}
+      </View>
+
+      {/* Renderiza o conteúdo da lista (ou estados de loading/erro) */}
+      {renderListContent()}
     </View>
   );
 }

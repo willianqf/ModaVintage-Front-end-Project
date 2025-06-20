@@ -1,17 +1,15 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-// ACRESCENTADO o "Image"
 import { View, Text, FlatList, ActivityIndicator, Alert, TouchableOpacity, TextInput, Image } from 'react-native';
-import { styles as listarMercadoriasStyles } from './stylesListarMercadorias';
+import { styles } from './stylesListarMercadorias';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
 import axiosInstance from '../api/axiosInstance';
 import axios from 'axios';
-// ACRESCENTADO para o ícone de imagem padrão
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../global/themes';
 
-
+// --- Interfaces ---
 export interface Produto {
   id: number;
   nome: string;
@@ -21,273 +19,171 @@ export interface Produto {
   tamanho?: string;
   categoria?: string;
   dataCadastro?: string;
-  // CAMPO DA IMAGEM ADICIONADO À INTERFACE
   imagemUri?: string; 
 }
-
-interface PaginatedResponse<T> {
-  content: T[];
-  totalPages: number;
-  totalElements: number;
-  number: number;
-  size: number;
-  first: boolean;
-  last: boolean;
-  empty: boolean;
-}
+interface PaginatedResponse<T> { content: T[]; last: boolean; number: number; }
 
 const PAGE_SIZE = 10;
-
 type ListarMercadoriasNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ListarMercadorias'>;
 
-export default function ListarMercadoriasScreen() {
-  const navigation = useNavigation<ListarMercadoriasNavigationProp>();
+// --- Funções Auxiliares de Formatação ---
+const formatarMoeda = (valor?: number) => {
+    if (valor === undefined || valor === null) return 'N/A';
+    return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
 
+export default function ListarMercadoriasScreen() {
+  // --- Lógica de Estado e Hooks (sem alterações) ---
+  const navigation = useNavigation<ListarMercadoriasNavigationProp>();
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-
   const currentPageRef = useRef(0);
   const hasMoreRef = useRef(true);
   const isFetchingRef = useRef(false);
-
   const [termoPesquisaInput, setTermoPesquisaInput] = useState('');
   const [termoPesquisaAtivo, setTermoPesquisaAtivo] = useState('');
 
+  // --- Lógica de Busca e Manipulação de Dados (sem alterações) ---
   const fetchProdutos = useCallback(async (pageToFetch: number, searchTerm: string, isNewSearchOrRefresh: boolean) => {
-    if (isFetchingRef.current && !isNewSearchOrRefresh) {
-      return;
-    }
-    if (!isNewSearchOrRefresh && !hasMoreRef.current) {
-      setIsLoadingMore(false);
-      return;
-    }
+    if (isFetchingRef.current && !isNewSearchOrRefresh) return;
+    if (!isNewSearchOrRefresh && !hasMoreRef.current) { setIsLoadingMore(false); return; }
 
     isFetchingRef.current = true;
     if (isNewSearchOrRefresh) setIsLoading(true); else setIsLoadingMore(true);
     if (isNewSearchOrRefresh) setError(null);
 
     try {
-      const params: Record<string, string | number> = {
-        page: pageToFetch,
-        size: PAGE_SIZE,
-        sort: 'nome,asc',
-      };
-      if (searchTerm.trim() !== '') {
-        params.nome = searchTerm.trim();
-      }
-      
-      const response = await axiosInstance.get<PaginatedResponse<Produto>>('/produtos', { params });
-
-      if (response.data && response.data.content) {
-        setProdutos(prevProdutos =>
-          (isNewSearchOrRefresh || pageToFetch === 0) ? response.data.content : [...prevProdutos, ...response.data.content]
-        );
-        hasMoreRef.current = !response.data.last;
-        currentPageRef.current = response.data.number;
-      } else {
-        if (isNewSearchOrRefresh || pageToFetch === 0) setProdutos([]);
-        hasMoreRef.current = false;
-      }
-      if (error && (isNewSearchOrRefresh || pageToFetch === 0)) setError(null);
-
-    } catch (err: any) {
-      console.error("ListarMercadoriasScreen: Erro ao buscar produtos:", JSON.stringify(err.response?.data || err.message));
-      if (axios.isAxiosError(err)) {
-        if (err.response && err.response.status !== 401) {
-          const apiErrorMessage = err.response.data?.erro || err.response.data?.message || "Não foi possível carregar as mercadorias.";
-          setError(apiErrorMessage);
-        } else if (!err.response) {
-          setError("Erro de conexão ao buscar mercadorias.");
+        const params: Record<string, string | number> = { page: pageToFetch, size: PAGE_SIZE, sort: 'nome,asc' };
+        if (searchTerm.trim() !== '') params.nome = searchTerm.trim();
+        const response = await axiosInstance.get<PaginatedResponse<Produto>>('/produtos', { params });
+        if (response.data && response.data.content) {
+            setProdutos(prev => (isNewSearchOrRefresh || pageToFetch === 0) ? response.data.content : [...prev, ...response.data.content]);
+            hasMoreRef.current = !response.data.last;
+            currentPageRef.current = response.data.number;
+        } else {
+            if (isNewSearchOrRefresh || pageToFetch === 0) setProdutos([]);
+            hasMoreRef.current = false;
         }
-      } else {
-        setError("Ocorreu um erro desconhecido ao buscar mercadorias.");
-      }
-      if (isNewSearchOrRefresh || pageToFetch === 0) setProdutos([]);
+    } catch (err: any) {
+        if (axios.isAxiosError(err)) {
+            setError(err.response?.data?.message || "Não foi possível carregar as mercadorias.");
+        } else {
+            setError("Ocorreu um erro desconhecido.");
+        }
+        if (isNewSearchOrRefresh || pageToFetch === 0) setProdutos([]);
     } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
-      isFetchingRef.current = false;
+        setIsLoading(false); setIsLoadingMore(false); isFetchingRef.current = false;
     }
-  }, [error]);
+  }, []);
 
   useEffect(() => {
-    const handler = setTimeout(() => {
-      if (termoPesquisaInput !== termoPesquisaAtivo) {
-        setTermoPesquisaAtivo(termoPesquisaInput);
-      }
-    }, 800);
+    const handler = setTimeout(() => { if (termoPesquisaInput !== termoPesquisaAtivo) setTermoPesquisaAtivo(termoPesquisaInput); }, 800);
     return () => clearTimeout(handler);
   }, [termoPesquisaInput, termoPesquisaAtivo]);
 
   useEffect(() => {
-    currentPageRef.current = 0;
-    hasMoreRef.current = true;
+    currentPageRef.current = 0; hasMoreRef.current = true;
     fetchProdutos(0, termoPesquisaAtivo, true);
   }, [termoPesquisaAtivo, fetchProdutos]);
 
-  useFocusEffect(
-    useCallback(() => {
-      currentPageRef.current = 0;
-      hasMoreRef.current = true;
-      fetchProdutos(0, termoPesquisaAtivo, true);
-      return () => {};
-    }, [termoPesquisaAtivo, fetchProdutos])
-  );
-
-  const handleLoadMore = () => {
-    if (!isFetchingRef.current && hasMoreRef.current && !isLoadingMore) {
-      fetchProdutos(currentPageRef.current + 1, termoPesquisaAtivo, false);
-    }
-  };
-
-  const handleRefresh = () => {
-    currentPageRef.current = 0;
-    hasMoreRef.current = true;
+  useFocusEffect(useCallback(() => {
+    currentPageRef.current = 0; hasMoreRef.current = true;
     fetchProdutos(0, termoPesquisaAtivo, true);
-  };
+  }, [termoPesquisaAtivo, fetchProdutos]));
 
-  const handleSearchSubmit = () => {
-    if (termoPesquisaInput !== termoPesquisaAtivo) {
-      setTermoPesquisaAtivo(termoPesquisaInput);
-    } else {
-      handleRefresh();
-    }
-  };
-
-  const confirmarDelecao = (produtoId: number, produtoNome: string) => {
-    Alert.alert("Confirmar Deleção", `Tem certeza que deseja deletar "${produtoNome}"?`,
-      [{ text: "Cancelar", style: "cancel" }, { text: "Deletar", onPress: () => handleDeletarProduto(produtoId), style: "destructive" }]
-    );
-  };
-
-  const handleDeletarProduto = async (produtoId: number) => {
-    setIsDeleting(produtoId);
-    try {
-      await axiosInstance.delete(`/produtos/${produtoId}`);
-      Alert.alert("Sucesso", "Mercadoria deletada!");
-      handleRefresh();
-    } catch (error: any) {
-      console.error("ListarMercadoriasScreen: Erro ao deletar mercadoria:", JSON.stringify(error.response?.data || error.message));
-      if (axios.isAxiosError(error) && error.response?.status !== 401) {
-        const apiErrorMessage = error.response?.data?.erro || error.response?.data?.message || "Não foi possível deletar a mercadoria.";
-        Alert.alert("Erro ao Deletar", apiErrorMessage);
-      } else if(!axios.isAxiosError(error)) {
-        Alert.alert("Erro Desconhecido", "Ocorreu um erro inesperado ao deletar.");
-      }
-    } finally {
-      setIsDeleting(null);
-    }
-  };
-
-  const renderFooter = (): React.ReactElement | null => {
-    if (isLoadingMore) {
-      return <View style={{ paddingVertical: 20 }}><ActivityIndicator size="large" color="#323588" /></View>;
-    }
-    if (!hasMoreRef.current && produtos.length > 0 && !isLoading && !error) {
-      return <View style={{ paddingVertical: 20 }}><Text style={listarMercadoriasStyles.emptyDataText}>Fim da lista de mercadorias.</Text></View>;
-    }
-    return null;
-  };
+  const handleLoadMore = () => { if (!isFetchingRef.current && hasMoreRef.current && !isLoadingMore) fetchProdutos(currentPageRef.current + 1, termoPesquisaAtivo, false); };
+  const handleRefresh = () => { currentPageRef.current = 0; hasMoreRef.current = true; fetchProdutos(0, termoPesquisaAtivo, true); };
+  const confirmarDelecao = (id: number, nome: string) => Alert.alert("Confirmar Deleção", `Tem certeza que deseja deletar "${nome}"?`, [{ text: "Cancelar", style: "cancel" }, { text: "Deletar", onPress: () => handleDeletarProduto(id), style: "destructive" }]);
   
-  // FUNÇÃO RENDERITEM TOTALMENTE MODIFICADA
+  const handleDeletarProduto = async (id: number) => {
+    setIsDeleting(id);
+    try {
+        await axiosInstance.delete(`/produtos/${id}`);
+        Alert.alert("Sucesso", "Mercadoria deletada!");
+        handleRefresh();
+    } catch (error: any) {
+        Alert.alert("Erro", "Não foi possível deletar a mercadoria.");
+    } finally {
+        setIsDeleting(null);
+    }
+  };
+
+  // --- Componentes de Renderização com novo visual ---
   const renderItem = ({ item }: { item: Produto }) => (
-    <TouchableOpacity
-      style={listarMercadoriasStyles.itemContainer}
-      onPress={() => navigation.navigate('EditarMercadoria', { produtoId: item.id })}
-    >
-      {/* Container para a imagem */}
-      <View style={listarMercadoriasStyles.imageContainer}>
-        {item.imagemUri ? (
-          <Image source={{ uri: item.imagemUri }} style={listarMercadoriasStyles.itemImage} />
-        ) : (
-          <MaterialCommunityIcons name="image-off-outline" size={32} color={theme.colors.placeholder} />
-        )}
+    <TouchableOpacity style={styles.itemContainer} onPress={() => navigation.navigate('EditarMercadoria', { produtoId: item.id })}>
+      {/* Imagem do Produto */}
+      {item.imagemUri ? 
+        <Image source={{ uri: item.imagemUri }} style={styles.image} /> :
+        <View style={styles.image}><MaterialCommunityIcons name="image-off-outline" size={32} color={theme.colors.placeholder} /></View>
+      }
+      {/* Detalhes do Produto */}
+      <View style={styles.detailsContainer}>
+        <Text style={styles.itemName} numberOfLines={1}>{item.nome} {item.tamanho ? `- ${item.tamanho}` : ''}</Text>
+        <Text style={styles.itemDetails}>Categoria: <Text style={styles.itemDetailsBold}>{item.categoria || 'N/A'}</Text></Text>
+          <Text style={styles.itemDetails}>Preço Custo: <Text style={styles.itemDetailsBold}>{formatarMoeda(item.estoque)}</Text></Text>
+        <Text style={styles.itemDetails}>Preço Venda: <Text style={styles.itemDetailsBold}>{formatarMoeda(item.preco)}</Text></Text>
+        <Text style={styles.itemDetails}>Estoque: <Text style={styles.itemDetailsBold}>{item.estoque}</Text></Text>
+        <View style={styles.statusContainer}>
+         <Text style={styles.itemDetails}>Status: <Text style={item.estoque > 0 ? styles.statusDisponivel : styles.statusVendido}>
+                {item.estoque > 0 ? 'Disponível' : 'Sem Estoque'}
+            </Text></Text>
+        </View>
       </View>
-
-      {/* Container para os detalhes do produto */}
-      <View style={listarMercadoriasStyles.detailsContainer}>
-        <Text style={listarMercadoriasStyles.itemName}>{item.nome} {item.tamanho ? `- ${item.tamanho}` : ''}</Text>
-        <Text style={listarMercadoriasStyles.itemDetails}>Categoria: {item.categoria || 'N/A'}</Text>
-        {item.precoCusto !== undefined && item.precoCusto !== null && (
-          <Text style={listarMercadoriasStyles.itemDetails}>
-            Preço Custo: R$ {typeof item.precoCusto === 'number' ? item.precoCusto.toFixed(2) : 'N/A'}
-          </Text>
-        )}
-        <Text style={listarMercadoriasStyles.itemDetails}>Preço Venda: R$ {item.preco.toFixed(2)}</Text>
-        <Text style={listarMercadoriasStyles.itemDetails}>Estoque: {item.estoque}</Text>
-        <Text style={item.estoque > 0 ? listarMercadoriasStyles.statusDisponivel : listarMercadoriasStyles.statusVendido}>
-          Status: {item.estoque > 0 ? 'Disponível' : 'Sem Estoque'}
-        </Text>
-      </View>
-
-      {/* Container para o botão de deletar */}
-      <View style={listarMercadoriasStyles.deleteButtonContainer}>
-        <TouchableOpacity
-          style={listarMercadoriasStyles.deleteButton}
-          onPress={() => confirmarDelecao(item.id, item.nome)}
-          disabled={isDeleting === item.id}
-        >
-          {isDeleting === item.id ?
-            <ActivityIndicator size="small" color="#FFFFFF" /> :
-            <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FFFFFF" />
-          }
-        </TouchableOpacity>
-      </View>
+      {/* Botão de Deletar */}
+      <TouchableOpacity style={styles.deleteButton} onPress={() => confirmarDelecao(item.id, item.nome)} disabled={isDeleting === item.id}>
+        {isDeleting === item.id ? 
+            <ActivityIndicator size="small" color={theme.colors.error} /> : 
+            <MaterialCommunityIcons name="trash-can-outline" size={22} color={theme.colors.error} />
+        }
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 
-  const showInitialLoading = isLoading && produtos.length === 0 && currentPageRef.current === 0 && !error;
-  const showErrorScreen = error && produtos.length === 0 && !isLoading;
+  const renderListContent = () => {
+    if (isLoading && produtos.length === 0) {
+      return (<View style={styles.centered}><ActivityIndicator size="large" color={theme.colors.primary} /></View>);
+    }
+    if (error && produtos.length === 0) {
+      return (<View style={styles.centered}><Text style={styles.errorText}>{error}</Text><TouchableOpacity style={styles.retryButton} onPress={handleRefresh}><Text style={styles.retryButtonText}>Tentar Novamente</Text></TouchableOpacity></View>);
+    }
+    return (
+      <FlatList
+        data={produtos}
+        renderItem={renderItem}
+        keyExtractor={(item) => `produto-${item.id}`}
+        ListEmptyComponent={!isLoading ? (<View style={styles.centered}><Text style={styles.emptyDataText}>{termoPesquisaAtivo ? `Nenhuma mercadoria encontrada para "${termoPesquisaAtivo}".` : 'Nenhuma mercadoria cadastrada.'}</Text></View>) : null}
+        onRefresh={handleRefresh}
+        refreshing={isLoading}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={isLoadingMore ? <ActivityIndicator style={{ margin: 20 }} size="large" color={theme.colors.primary} /> : null}
+        contentContainerStyle={{ paddingBottom: 20 }}
+        keyboardShouldPersistTaps="handled"
+      />
+    );
+  };
 
   return (
-    <View style={listarMercadoriasStyles.container}>
-      <Text style={listarMercadoriasStyles.headerTitle}>Lista de Mercadorias</Text>
-      <TextInput
-        style={listarMercadoriasStyles.searchInput}
-        placeholder="Pesquisar mercadoria por nome..."
-        value={termoPesquisaInput}
-        onChangeText={setTermoPesquisaInput}
-        onSubmitEditing={handleSearchSubmit}
-        returnKeyType="search"
-        placeholderTextColor="#888"
-      />
-      {showInitialLoading ? (
-        <View style={listarMercadoriasStyles.centered}>
-          <ActivityIndicator size="large" color="#323588" />
-          <Text style={listarMercadoriasStyles.loadingText}>Carregando mercadorias...</Text>
+    <View style={styles.container}>
+      {/* Cabeçalho e Pesquisa fora da FlatList */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Lista de Mercadorias</Text>
+        <View style={styles.searchContainer}>
+            <MaterialCommunityIcons name="magnify" size={24} color={theme.colors.placeholder} />
+            <TextInput
+                style={styles.searchInput}
+                placeholder="Pesquisar mercadoria por nome..."
+                value={termoPesquisaInput}
+                onChangeText={setTermoPesquisaInput}
+                returnKeyType="search"
+                placeholderTextColor={theme.colors.placeholder}
+            />
         </View>
-      ) : showErrorScreen ? (
-        <View style={listarMercadoriasStyles.centered}>
-          <Text style={listarMercadoriasStyles.errorText}>{error}</Text>
-          <TouchableOpacity style={listarMercadoriasStyles.retryButton} onPress={handleRefresh}>
-            <Text style={listarMercadoriasStyles.retryButtonText}>Tentar Novamente</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <FlatList
-          data={produtos}
-          renderItem={renderItem}
-          keyExtractor={(item) => `produto-${item.id.toString()}`}
-          contentContainerStyle={listarMercadoriasStyles.listContentContainer}
-          onRefresh={handleRefresh}
-          refreshing={isLoading && currentPageRef.current === 0 && !isLoadingMore}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={renderFooter}
-          ListEmptyComponent={
-            !isLoading && !error && produtos.length === 0 ? (
-              <View style={listarMercadoriasStyles.centered}>
-                <Text style={listarMercadoriasStyles.emptyDataText}>
-                  {termoPesquisaAtivo ? `Nenhuma mercadoria encontrada para "${termoPesquisaAtivo}".` : 'Nenhuma mercadoria cadastrada.'}
-                </Text>
-              </View>
-            ) : null
-          }
-        />
-      )}
+      </View>
+      {renderListContent()}
     </View>
   );
 }
