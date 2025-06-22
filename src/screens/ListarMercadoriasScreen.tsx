@@ -123,7 +123,7 @@ export default function ListarMercadoriasScreen() {
       <View style={styles.detailsContainer}>
         <Text style={styles.itemName} numberOfLines={1}>{item.nome} {item.tamanho ? `- ${item.tamanho}` : ''}</Text>
         <Text style={styles.itemDetails}>Categoria: <Text style={styles.itemDetailsBold}>{item.categoria || 'N/A'}</Text></Text>
-          <Text style={styles.itemDetails}>Preço Custo: <Text style={styles.itemDetailsBold}>{formatarMoeda(item.estoque)}</Text></Text>
+          <Text style={styles.itemDetails}>Preço Custo: <Text style={styles.itemDetailsBold}>{formatarMoeda(item.precoCusto)}</Text></Text>
         <Text style={styles.itemDetails}>Preço Venda: <Text style={styles.itemDetailsBold}>{formatarMoeda(item.preco)}</Text></Text>
         <Text style={styles.itemDetails}>Estoque: <Text style={styles.itemDetailsBold}>{item.estoque}</Text></Text>
         <View style={styles.statusContainer}>
