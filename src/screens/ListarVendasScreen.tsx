@@ -10,9 +10,7 @@ import DateTimePickerModal from "react-native-modal-datetime-picker";
 // --- Interfaces ---
 interface Cliente { id: number; nome: string; }
 
-// ===== 1. INTERFACE CORRIGIDA =====
-// Apenas adicionamos o campo 'precoUnitarioSnapshot'.
-// O campo 'quantidade' permanece com o nome original e correto.
+
 interface ItemVenda { 
   id: number; 
   quantidade: number;
@@ -176,9 +174,7 @@ export default function ListarVendasScreen() {
 
   const formatarData = (dataISO: string) => new Date(dataISO).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-  // ===== 2. RENDERIZAÇÃO CORRIGIDA =====
-  // O texto agora usa 'iv.quantidade' e 'iv.precoUnitarioSnapshot', que são
-  // os nomes corretos dos campos. A proteção '|| 0' continua para evitar crashes.
+
   const renderVendaItem = ({ item }: { item: Venda }) => (
     <View style={styles.itemContainer}>
       <View style={styles.itemHeader}><Text style={styles.saleId}>Venda ID: {item.id}</Text><Text style={styles.saleDate}>{formatarData(item.dataVenda)}</Text></View>

@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-// import axios from 'axios'; // REMOVA esta linha
 import { styles } from './stylesSolicitarReset'; //
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
 
-// Importe a instância configurada do Axios e o helper isAxiosError
-import axiosInstance from '../api/axiosInstance'; // Ajuste o caminho se necessário
+// Importa instância configurada do Axios e o helper isAxiosError
+import axiosInstance from '../api/axiosInstance'; 
 import axios from 'axios'; // Para usar axios.isAxiosError
 
-// const API_BASE_URL = 'http://192.168.1.5:8080'; // Não é mais necessário
+// const API_BASE_URL = 'http://192.168.1.5:8080'; 
 
 type SolicitarResetNavigationProp = NativeStackNavigationProp<RootStackParamList, 'SolicitarResetSenha'>;
 
@@ -43,13 +42,11 @@ export default function SolicitarResetSenhaScreen() {
 
     } catch (error: any) {
       console.error("SolicitarResetSenhaScreen: Erro ao solicitar reset:", JSON.stringify(error.response?.data || error.message));
-      // O backend já retorna uma mensagem genérica para não vazar informação de e-mail.
-      // Exibimos essa mensagem ou uma padrão.
+
       let errorMessage = "Não foi possível processar sua solicitação. Tente novamente mais tarde.";
       if (axios.isAxiosError(error) && error.response?.data) {
         errorMessage = error.response.data.mensagem || error.response.data.erro || errorMessage;
       } else if (!axios.isAxiosError(error) && error.message) {
-        // Não expor error.message diretamente se puder vazar info sobre o sistema
       }
       Alert.alert("Erro na Solicitação", errorMessage);
     } finally {

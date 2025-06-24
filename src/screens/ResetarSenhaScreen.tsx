@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, ActivityIndicator } from 'react-native';
-// import axios from 'axios'; // REMOVA esta linha
 import { styles } from './stylesResetarSenha'; //
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
 
-// Importe a instância configurada do Axios e o helper isAxiosError
-import axiosInstance from '../api/axiosInstance'; // Ajuste o caminho se necessário
-import axios from 'axios'; // Para usar axios.isAxiosError
+// Importar a instância configurada do Axios e o helper isAxiosError
+import axiosInstance from '../api/axiosInstance'; 
+import axios from 'axios'; // usar axios.isAxiosError
 
-// const API_BASE_URL = 'http://192.168.1.5:8080'; // Não é mais necessário
+// const API_BASE_URL = 'http://192.168.1.5:8080'; // Não é mais necesario mas vai que.. né
 
 type ResetarSenhaRouteProp = RouteProp<RootStackParamList, 'ResetarSenha'>;
 type ResetarSenhaNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ResetarSenha'>;
@@ -26,8 +25,6 @@ export default function ResetarSenhaScreen() {
   const [confirmarNovaSenha, setConfirmarNovaSenha] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // O useEffect que preenchia o token (se existisse) foi removido no seu código original,
-  // pois o usuário digitará o token recebido por email. Mantemos assim.
 
   const handleResetarSenha = async () => {
     if (!tokenInput.trim() || tokenInput.trim().length !== 6) {
@@ -53,13 +50,6 @@ export default function ResetarSenhaScreen() {
         token: tokenInput.trim(),
         novaSenha: novaSenha,
       };
-      // Use axiosInstance
-      // O backend AuthController -> /resetar-senha não requer autenticação JWT,
-      // pois o usuário está tentando recuperar a senha.
-      // Portanto, podemos usar 'axios' diretamente aqui ou 'axiosInstance'.
-      // Usar 'axiosInstance' é inofensivo, mesmo que não adicione um token.
-      // Se preferir, para rotas públicas, 'axios.post' também funcionaria.
-      // Manteremos axiosInstance para consistência, mas ciente que o token JWT não é o foco aqui.
       const response = await axiosInstance.post('/auth/resetar-senha', payload); //
       
       Alert.alert(
@@ -74,7 +64,7 @@ export default function ResetarSenhaScreen() {
         // O backend retorna {erro: "Token inválido..."} ou {mensagem: "Senha redefinida..."}
         errorMessage = error.response.data.erro || error.response.data.message || errorMessage;
       } else if (!axios.isAxiosError(error) && error.message) {
-        // Não expor error.message diretamente se puder vazar info
+        // Não expor error.message diretamente pra não vazar informações kkkk
       }
       Alert.alert("Erro ao Redefinir", errorMessage);
     } finally {

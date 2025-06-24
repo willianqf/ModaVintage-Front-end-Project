@@ -148,7 +148,7 @@ export default function EditarMercadoriaScreen() {
           </View>
           
           {/* =======================================================
-              AREA DA IMAGEM TOTALMENTE REESTRUTURADA PARA CLAREZA
+              AREA DA IMAGEM TOTALMENTE REESTRUTURADA ;/
               ======================================================= */}
           <View style={styles.formGroup}>
             <Text style={styles.label}>Foto</Text>

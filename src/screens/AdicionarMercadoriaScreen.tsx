@@ -25,9 +25,7 @@ export default function AdicionarMercadoriaScreen() {
   const [imagemUri, setImagemUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
-  // ==================================================================
-  // AQUI ESTÁ A ÚNICA MUDANÇA: A FUNÇÃO PARA USAR A CÂMERA
-  // ==================================================================
+
   const handleEscolherImagem = async () => {
     // Pede permissão para USAR A CÂMERA
     const { status } = await ImagePicker.requestCameraPermissionsAsync();

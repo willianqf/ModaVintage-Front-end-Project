@@ -2,9 +2,9 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types'; // Verifique se o caminho está correto
+import { RootStackParamList } from '../navigation/types'; 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { styles } from './stylesMercadorias'; // Importando os novos estilos
+import { styles } from './stylesMercadorias'; 
 import { theme } from '../global/themes';
 
 type MercadoriasNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Mercadorias'>;

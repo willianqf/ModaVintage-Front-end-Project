@@ -9,8 +9,8 @@ export const setGlobalLogoutHandler = (logoutHandler: () => void) => {
   globalLogoutHandler = logoutHandler;
 };
 
-const API_BASE_URL = 'http://192.168.1.5:8080'
-//const API_BASE_URL = 'https://spring-modavintage.onrender.com'
+//const API_BASE_URL = 'http://192.168.1.5:8080'
+const API_BASE_URL = 'https://spring-modavintage.onrender.com'
 //https://spring-modavintage.onrender.com
 
 
@@ -41,7 +41,6 @@ axiosInstance.interceptors.response.use(
 
     // Verifica se é um erro 401 e se originalRequest (config) existe
     if (response?.status === 401 && originalRequest) {
-      // Se a URL da requisição original NÃO FOR a de login, trata como token de sessão inválido
       if (originalRequest.url !== '/auth/login') {
         if (!originalRequest._retry) {
           originalRequest._retry = true;
@@ -52,11 +51,10 @@ axiosInstance.interceptors.response.use(
         return Promise.resolve({ data: { K_custom_interceptor_logout_triggered: true } }); // Retorna algo identificável
       } else {
         // Se for um erro 401 na rota /auth/login, são credenciais inválidas.
-        // Propagamos o erro para ser tratado pela tela de Login.
         console.warn('axiosInstance: Erro 401 na rota de login (credenciais inválidas). Propagando erro.');
       }
     }
-    // Para todos os outros erros (incluindo 401 de /auth/login), rejeita a promise
+    // Para todos os outros erros (incluindo 401 de /auth/login), rejeitar a promise > Obs: Verificar validação no back
     return Promise.reject(error);
   }
 );

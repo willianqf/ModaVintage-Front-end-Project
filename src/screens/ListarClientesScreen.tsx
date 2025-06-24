@@ -110,7 +110,7 @@ export default function ListarClientesScreen() {
     }
   };
 
-  // --- Componentes de Renderização (Aqui aplicamos o novo design) ---
+  // --- Componentes de Renderização ( ---
   const renderItem = ({ item }: { item: Cliente }) => (
     <View style={styles.itemContainer}>
       <View style={styles.itemContent}>

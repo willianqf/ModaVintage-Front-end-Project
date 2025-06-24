@@ -9,7 +9,7 @@ import axios from 'axios';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../global/themes';
 
-// --- Interfaces (usando a versão original do seu código) ---
+// --- Interfaces ---
 export interface Fornecedor {
   id: number;
   nome: string;
@@ -22,7 +22,7 @@ const PAGE_SIZE = 10;
 type ListarFornecedoresNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ListarFornecedores'>;
 
 export default function ListarFornecedoresScreen() {
-  // --- Lógica de Estado e Hooks (sem alterações) ---
+  // --- Lógica de Estado e Hooks  ---
   const navigation = useNavigation<ListarFornecedoresNavigationProp>();
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -194,7 +194,7 @@ export default function ListarFornecedoresScreen() {
         </View>
       </View>
 
-      {/* Renderiza o conteúdo da lista (ou estados de loading/erro) */}
+      {/* Renderiza o conteúdo da lista  */}
       {renderListContent()}
     </View>
   );

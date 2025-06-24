@@ -26,7 +26,7 @@ interface CustomLoginScreenProps {
 type Props = LoginScreenNavProps & CustomLoginScreenProps;
 
 export default function LoginScreen({ navigation, onLoginSuccess }: Props) {
-  // Seus states e sua lógica permanecem 100% intactos
+
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [isLoading, setIsLoading] = useState(false);

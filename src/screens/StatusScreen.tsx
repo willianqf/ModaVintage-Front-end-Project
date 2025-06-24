@@ -9,8 +9,6 @@ import axios from 'axios';
 
 const screenWidth = Dimensions.get("window").width;
 
-// ===== INTERFACE CORRIGIDA PARA CORRESPONDER À API =====
-// Atualizada para usar os nomes dos campos que a API realmente envia.
 interface RelatorioLucratividadeData {
   periodo: string;
   totalReceita: number; // Corresponde à resposta da API
@@ -164,7 +162,6 @@ export default function StatusScreen() {
       if (response.data && response.data.length > 0) {
         const labels = response.data.map(item => formatMesAnoParaLabel(item.periodo));
         
-        // ===== PROCESSAMENTO CORRIGIDO E ROBUSTO =====
         const receitas = response.data.map(item => parseFloat((item.totalReceita || 0).toFixed(2)));
         const lucros = response.data.map(item => parseFloat((item.totalLucroBruto || 0).toFixed(2)));
         // Calcula o CMV se ele não vier da API

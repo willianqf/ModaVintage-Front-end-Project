@@ -11,7 +11,7 @@ import axios from 'axios';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../global/themes';
 
-// Seus tipos de interface e navegação
+//  interface e navegação
 interface ItemVendaInput { produto: Produto; quantidadeVendida: number; precoUnitario: number; }
 type RegistrarVendaNavigationProp = NativeStackNavigationProp<RootStackParamList, 'RegistrarVenda'>;
 type RegistrarVendaScreenRouteProp = RouteProp<RootStackParamList, 'RegistrarVenda'>;
@@ -20,8 +20,8 @@ export default function RegistrarVendaScreen() {
   const navigation = useNavigation<RegistrarVendaNavigationProp>();
   const route = useRoute<RegistrarVendaScreenRouteProp>();
 
-  // --- SEU BLOCO DE ESTADOS E LÓGICA (useState, useEffect, useCallback, handlers) ---
-  // --- NENHUMA ALTERAÇÃO FOI FEITA AQUI ---
+  // --- BLOCO DE ESTADOS E LÓGICA (useState, useEffect, useCallback, handlers) ---
+
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
   const [itensVenda, setItensVenda] = useState<ItemVendaInput[]>([]);
   const [dataVenda, setDataVenda] = useState(new Date());
@@ -140,9 +140,6 @@ const handleConfirmarAdicaoItem = () => {
       }
       novosItens[itemExistenteIndex].quantidadeVendida = qtdTotalNova;
     } else {
-      // ===== CORREÇÃO APLICADA AQUI =====
-      // Voltamos a usar 'produtoParaAdicionar.preco' para o precoUnitario,
-      // que é a propriedade correta na sua interface 'Produto'.
       novosItens.push({ produto: produtoParaAdicionar, quantidadeVendida: quantidade, precoUnitario: produtoParaAdicionar.preco });
     }
     setItensVenda(novosItens);

@@ -11,8 +11,7 @@ interface DashboardScreenProps {
   onLogout: () => void;
 }
 
-// Define o tipo para a propriedade de navegação da tela Dashboard
-// Certifique-se que 'Dashboard' é uma chave válida em RootStackParamList
+
 type DashboardNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Dashboard'>;
 
 export default function DashboardScreen({ onLogout }: DashboardScreenProps) {
@@ -39,7 +38,7 @@ export default function DashboardScreen({ onLogout }: DashboardScreenProps) {
         {/* Header Simulado Personalizado (opcional, pode ser substituído por um header de navegação) */}
         <View style={styles.headerPlaceholder}>
           <Image 
-            source={require('../../assets/logo.png')} // VERIFIQUE ESTE CAMINHO!
+            source={require('../../assets/logo.png')} 
             style={styles.headerLogo} 
             resizeMode="contain" 
           />

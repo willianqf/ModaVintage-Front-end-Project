@@ -16,8 +16,8 @@ export default function EditarFornecedorScreen() {
   const route = useRoute<EditarFornecedorRouteProp>();
   const { fornecedorId } = route.params;
 
-  // --- SEU BLOCO DE ESTADOS E LÓGICA ---
-  // --- NENHUMA ALTERAÇÃO FOI FEITA AQUI ---
+  // --- BLOCO DE ESTADOS E LÓGICA ---
+
   const [nome, setNome] = useState('');
   const [cnpj, setCnpj] = useState('');
   const [contato, setContato] = useState('');
